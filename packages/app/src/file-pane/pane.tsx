@@ -21,6 +21,8 @@ import { resolveFilePreviewReadTarget } from "@/file-explorer/preview-target";
 import type { WorkspaceFileLocation } from "@/workspace/file-open";
 import { useRetainedPanelActive } from "@/components/retained-panel";
 import { useAppActivelyVisible } from "@/hooks/use-app-visible";
+import { useFileDownload } from "@/hooks/use-file-download";
+import { isAbsolutePath } from "@/utils/path";
 import { isFileQueryEnabled } from "@/components/file-pane-enabled";
 import { isWeb } from "@/constants/platform";
 import { useAppSettings } from "@/hooks/use-settings";
@@ -28,6 +30,8 @@ import { useLiveFile } from "./live-file/hook";
 import { useFilePreview } from "./preview-lifecycle/hook";
 import { resolveFilePreviewLifecycle } from "./preview-lifecycle/model";
 import { FilePanelBar } from "./bar";
+import { FileVideoPreview } from "./file-video-preview";
+import { isVideoPreviewable } from "./media-preview";
 import { FileHtmlPreview } from "./html-preview";
 import { FileMarkdownPreview } from "./markdown-preview";
 import { FileEditorModel, getFileConflictCallout, type FileConflictCallout } from "./editor/model";
@@ -53,7 +57,8 @@ interface FilePreviewBodyProps {
   isMobile: boolean;
   location: WorkspaceFileLocation;
   navigationRevision: number;
-  imagePreviewUri: string | null;
+  mediaPreviewUri: string | null;
+  onDownload?: () => void;
 }
 
 type TextExplorerFile = ExplorerFile & { kind: "text" };
@@ -117,12 +122,17 @@ function ReadonlySource({
   );
 }
 
-function TooLargeSource({ size }: { size?: number }) {
+function TooLargeSource({ size, onDownload }: { size?: number; onDownload?: () => void }) {
   const { t } = useTranslation();
   return (
     <View style={styles.centerState} testID="file-source-too-large">
       <Text style={styles.emptyText}>{t("panels.file.tooLargeToDisplay")}</Text>
       {size ? <Text style={styles.binaryMetaText}>{formatFileSize({ size })}</Text> : null}
+      {onDownload ? (
+        <Button variant="outline" size="sm" onPress={onDownload}>
+          {t("panels.fileActions.download")}
+        </Button>
+      ) : null}
     </View>
   );
 }
@@ -134,7 +144,8 @@ function FilePreviewBody({
   isMobile: _isMobile,
   location,
   navigationRevision,
-  imagePreviewUri,
+  mediaPreviewUri,
+  onDownload,
 }: FilePreviewBodyProps) {
   const { t } = useTranslation();
   const filePath = location.path;
@@ -199,7 +210,7 @@ function FilePreviewBody({
   }
 
   if (preview.kind === "image") {
-    if (!imagePreviewUri) {
+    if (!mediaPreviewUri) {
       return (
         <View style={styles.centerState}>
           <ThemedLoadingSpinner size="small" uniProps={foregroundMutedColorMapping} />
@@ -208,13 +219,31 @@ function FilePreviewBody({
       );
     }
 
-    return <ZoomableImage uri={imagePreviewUri} testID="image-file-preview" />;
+    return <ZoomableImage uri={mediaPreviewUri} testID="image-file-preview" />;
+  }
+
+  if (isVideoPreviewable({ mimeType: preview.mimeType, path: filePath })) {
+    if (!mediaPreviewUri) {
+      return (
+        <View style={styles.centerState}>
+          <ThemedLoadingSpinner size="small" uniProps={foregroundMutedColorMapping} />
+          <Text style={styles.loadingText}>{t("panels.file.loading")}</Text>
+        </View>
+      );
+    }
+
+    return <FileVideoPreview uri={mediaPreviewUri} testID="file-video-preview" />;
   }
 
   return (
     <View style={styles.centerState}>
       <Text style={styles.emptyText}>{t("panels.file.binaryPreviewUnavailable")}</Text>
       <Text style={styles.binaryMetaText}>{formatFileSize({ size: preview.size })}</Text>
+      {onDownload ? (
+        <Button variant="outline" size="sm" onPress={onDownload}>
+          {t("panels.fileActions.download")}
+        </Button>
+      ) : null}
     </View>
   );
 }
@@ -278,8 +307,22 @@ export function FilePane({
 
   useEffect(() => setPreviewMode("preview"), [targetKey]);
 
-  const { file: preview, imageAttachment } = resolveFilePreviewLifecycle(previewLifecycle);
-  const imagePreviewUri = useAttachmentPreviewUrl(imageAttachment);
+  const { file: preview, mediaAttachment } = resolveFilePreviewLifecycle(previewLifecycle);
+  const mediaPreviewUri = useAttachmentPreviewUrl(mediaAttachment);
+  const downloadFile = useFileDownload({
+    serverId,
+    workspaceRoot: normalizedWorkspaceRoot,
+  });
+  const downloadPath = workspaceRelativePath(normalizedFilePath, normalizedWorkspaceRoot);
+  const onDownload = useCallback(() => {
+    if (!downloadPath) {
+      return;
+    }
+    downloadFile({
+      fileName: getFileNameFromPath(downloadPath) ?? downloadPath,
+      path: downloadPath,
+    });
+  }, [downloadFile, downloadPath]);
   const isRenderable = isRenderablePreview(preview, location.path);
   const editable = isEditableTextFile({
     preview,
@@ -315,9 +358,31 @@ export function FilePane({
       isMobile={isMobile}
       location={location}
       navigationRevision={navigationRevision}
-      imagePreviewUri={imagePreviewUri}
+      mediaPreviewUri={mediaPreviewUri}
+      onDownload={downloadPath ? onDownload : undefined}
     />
   );
+}
+
+// Downloads go through the workspace download pipeline, so only files that
+// resolve inside the workspace root get one — outside paths have no relative
+// name to request.
+function workspaceRelativePath(path: string | null, workspaceRoot: string): string | null {
+  if (!path || !workspaceRoot) {
+    return null;
+  }
+  if (path === "~" || path.startsWith("~/") || path.startsWith("~\\")) {
+    return null;
+  }
+  if (!isAbsolutePath(path)) {
+    return path;
+  }
+  const root = workspaceRoot.replace(/\\/g, "/").replace(/\/+$/, "");
+  const normalized = path.replace(/\\/g, "/");
+  if (normalized.startsWith(`${root}/`)) {
+    return normalized.slice(root.length + 1);
+  }
+  return null;
 }
 
 function isRenderablePreview(preview: ExplorerFile | null, path: string): boolean {
@@ -356,7 +421,8 @@ function FilePanePresentation({
   isMobile,
   location,
   navigationRevision,
-  imagePreviewUri,
+  mediaPreviewUri,
+  onDownload,
 }: {
   serverId: string;
   client: DaemonClient | null;
@@ -377,7 +443,8 @@ function FilePanePresentation({
   isMobile: boolean;
   location: WorkspaceFileLocation;
   navigationRevision: number;
-  imagePreviewUri: string | null;
+  mediaPreviewUri: string | null;
+  onDownload?: () => void;
 }) {
   if (!client && readTarget) {
     return (
@@ -415,7 +482,7 @@ function FilePanePresentation({
     if (errorMessage === "File is too large to display") {
       return (
         <View style={styles.container} testID="workspace-file-pane">
-          <TooLargeSource />
+          <TooLargeSource onDownload={onDownload} />
         </View>
       );
     }
@@ -439,6 +506,7 @@ function FilePanePresentation({
           lineCount={lineCount}
           mode={previewMode}
           onModeChange={onPreviewModeChange}
+          onDownload={preview.kind !== "text" ? onDownload : undefined}
         />
       ) : null}
       <FilePreviewBody
@@ -448,7 +516,8 @@ function FilePanePresentation({
         isMobile={isMobile}
         location={location}
         navigationRevision={navigationRevision}
-        imagePreviewUri={imagePreviewUri}
+        mediaPreviewUri={mediaPreviewUri}
+        onDownload={onDownload}
       />
     </View>
   );
@@ -621,7 +690,7 @@ function EditableFilePane({
           isMobile={isMobile}
           location={location}
           navigationRevision={navigationRevision}
-          imagePreviewUri={null}
+          mediaPreviewUri={null}
         />
       )}
     </View>
