@@ -38,6 +38,8 @@ import {
   WORKSPACE_TREE_LOADING_ICON_SIZE,
 } from "@/components/tree-primitives";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
+import { useRetainedPanelActive } from "@/components/retained-panel";
+import { GIT_STATUS_LETTER, type ExplorerGitStatus } from "@/file-explorer/git-status";
 import {
   PaneContentToolbar,
   paneContentToolbarIconSize,
@@ -364,6 +366,7 @@ function TreeRowItem({
             style={[
               styles.entryName,
               workspaceTreeRowStyles.name,
+              entry.gitStatus && gitStatusColorStyle(entry.gitStatus),
               isHovered && workspaceTreeRowStyles.nameHovered,
             ]}
             numberOfLines={1}
@@ -371,6 +374,11 @@ function TreeRowItem({
           >
             {entry.name}
           </Text>
+          {entry.gitStatus ? (
+            <Text style={[styles.entryGitBadge, gitStatusColorStyle(entry.gitStatus)]}>
+              {GIT_STATUS_LETTER[entry.gitStatus]}
+            </Text>
+          ) : null}
         </View>
       </ContextMenuTrigger>
       <FileActionsContextMenuContent
@@ -892,6 +900,16 @@ export function FileExplorerPane({
   const handleRefresh = useCallback(() => {
     void refetchExplorer();
   }, [refetchExplorer]);
+
+  const isPaneActive = useRetainedPanelActive();
+  const wasPaneActiveRef = useRef(isPaneActive);
+  useEffect(() => {
+    const becameActive = isPaneActive && !wasPaneActiveRef.current;
+    wasPaneActiveRef.current = isPaneActive;
+    if (becameActive) {
+      void refreshExplorer();
+    }
+  }, [isPaneActive, refreshExplorer]);
 
   const sortLabels = useMemo(
     () => ({
@@ -1644,6 +1662,19 @@ function getErrorRecoveryPath(state: AgentFileExplorerState | undefined): string
   return candidate;
 }
 
+function gitStatusColorStyle(status: ExplorerGitStatus) {
+  switch (status) {
+    case "modified":
+      return styles.gitStatusModified;
+    case "added":
+      return styles.gitStatusAdded;
+    case "untracked":
+      return styles.gitStatusUntracked;
+    case "conflicted":
+      return styles.gitStatusConflicted;
+  }
+}
+
 const styles = StyleSheet.create((theme) => ({
   container: {
     flex: 1,
@@ -1780,6 +1811,24 @@ const styles = StyleSheet.create((theme) => ({
     color: theme.colors.foreground,
     fontSize: theme.fontSize.base,
     userSelect: "none",
+  },
+  entryGitBadge: {
+    fontSize: theme.fontSize.sm,
+    fontWeight: theme.fontWeight.semibold,
+    marginLeft: theme.spacing[2],
+    flexShrink: 0,
+  },
+  gitStatusModified: {
+    color: theme.colors.statusWarning,
+  },
+  gitStatusAdded: {
+    color: theme.colors.statusSuccess,
+  },
+  gitStatusUntracked: {
+    color: theme.colors.statusSuccess,
+  },
+  gitStatusConflicted: {
+    color: theme.colors.statusDanger,
   },
   draftInput: {
     flex: 1,

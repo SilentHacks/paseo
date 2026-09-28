@@ -19,6 +19,7 @@ import {
   deleteExplorerEntry,
   duplicateExplorerEntry,
   getExplorerFileVersion,
+  listDirectoryEntries,
   readExplorerFile,
   renameExplorerEntry,
   streamExplorerFile,
@@ -587,6 +588,69 @@ describe("file explorer service", () => {
       await expect(
         deleteExplorerEntry({ root, relativePath: "../outside" }),
       ).resolves.toMatchObject({ status: "error" });
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("annotates directory listings with git status inside a work tree", async () => {
+    const root = await createTempDir("paseo-entry-git-status-");
+    try {
+      await runGitCommand(["init", "-b", "main"], { cwd: root });
+      await writeFile(path.join(root, "tracked.txt"), "before", "utf8");
+      await runGitCommand(["add", "tracked.txt"], { cwd: root });
+      await runGitCommand(
+        ["-c", "user.name=Paseo Test", "-c", "user.email=test@paseo.local", "commit", "-m", "base"],
+        { cwd: root },
+      );
+      await writeFile(path.join(root, "tracked.txt"), "after", "utf8");
+      await writeFile(path.join(root, "staged.txt"), "new", "utf8");
+      await runGitCommand(["add", "staged.txt"], { cwd: root });
+      await writeFile(path.join(root, "loose.txt"), "untracked", "utf8");
+      await mkdir(path.join(root, "freshdir"));
+      await writeFile(path.join(root, "freshdir", "inner.txt"), "untracked", "utf8");
+
+      const listing = await listDirectoryEntries({ root });
+      const byName = new Map(listing.entries.map((entry) => [entry.name, entry]));
+      expect(byName.get("tracked.txt")?.gitStatus).toBe("modified");
+      expect(byName.get("staged.txt")?.gitStatus).toBe("added");
+      expect(byName.get("loose.txt")?.gitStatus).toBe("untracked");
+      expect(byName.get("freshdir")?.gitStatus).toBe("untracked");
+      expect(byName.get(".git")?.gitStatus).toBeUndefined();
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("returns listing entries without gitStatus outside a work tree", async () => {
+    const root = await createTempDir("paseo-entry-nogit-");
+    try {
+      await writeFile(path.join(root, "plain.txt"), "hello", "utf8");
+      const listing = await listDirectoryEntries({ root });
+      const plain = listing.entries.find((entry) => entry.name === "plain.txt");
+      expect(plain).toBeDefined();
+      expect(plain?.gitStatus).toBeUndefined();
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("re-scans git status after explorer mutations", async () => {
+    const root = await createTempDir("paseo-entry-git-refresh-");
+    try {
+      await runGitCommand(["init", "-b", "main"], { cwd: root });
+      await writeFile(path.join(root, "tracked.txt"), "before", "utf8");
+      await runGitCommand(["add", "tracked.txt"], { cwd: root });
+      await runGitCommand(
+        ["-c", "user.name=Paseo Test", "-c", "user.email=test@paseo.local", "commit", "-m", "base"],
+        { cwd: root },
+      );
+      await listDirectoryEntries({ root });
+
+      await createExplorerEntry({ root, parentPath: ".", name: "fresh.txt", kind: "file" });
+      const listing = await listDirectoryEntries({ root });
+      const fresh = listing.entries.find((entry) => entry.name === "fresh.txt");
+      expect(fresh?.gitStatus).toBe("untracked");
     } finally {
       await rm(root, { recursive: true, force: true });
     }

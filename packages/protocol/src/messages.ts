@@ -2700,6 +2700,8 @@ const FileExplorerEntrySchema = z.object({
   kind: z.enum(["file", "directory"]),
   size: z.number(),
   modifiedAt: z.string(),
+  // COMPAT(explorerGitStatus): optional; absent on older daemons and non-git workspaces.
+  gitStatus: z.enum(["modified", "added", "untracked", "conflicted"]).optional(),
 });
 
 const FileExplorerFileSchema = z.object({
