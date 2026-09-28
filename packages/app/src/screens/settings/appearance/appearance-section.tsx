@@ -17,9 +17,11 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { DropdownTrigger } from "@/components/ui/dropdown-trigger";
 import { SettingsSection } from "@/components/settings/headings/settings-section";
+import { Button } from "@/components/ui/button";
 import { useContributedThemes } from "@/appearance/provider";
 import { EditingTextInput as TextInput } from "@/components/ui/text-input";
 import {
+  DEFAULT_TERMINAL_APPEARANCE,
   MAX_CODE_FONT_SIZE,
   MAX_CONTENT_FONT_SIZE,
   MAX_UI_BASE_FONT_SIZE,
@@ -32,6 +34,7 @@ import {
   type AppSettings,
   DEFAULT_THEME_PREFERENCE,
 } from "@/hooks/use-settings";
+import { hasTerminalAppearanceOverrides } from "@/terminal/apply-terminal-appearance";
 import {
   DEFAULT_MONO_FONT_STACK,
   DEFAULT_UI_FONT_STACK,
@@ -45,6 +48,8 @@ import { isNative } from "@/constants/platform";
 import type { PluginThemeOption } from "@/plugins/themes";
 import { settingsStyles } from "@/styles/settings";
 import { AppearancePreview } from "./appearance-preview";
+import { GhosttyImportCard } from "./ghostty-import-card";
+import { TerminalAppearancePreview } from "./terminal-appearance-preview";
 
 // ---------------------------------------------------------------------------
 // Theme-reactive leaf icons (withUnistyles + uniProps color mapping — no
@@ -411,6 +416,10 @@ export function AppearanceSection() {
 
   const [uiFontDraft, setUiFontDraft] = useState(settings.uiFontFamily);
   const [monoFontDraft, setMonoFontDraft] = useState(settings.monoFontFamily);
+  const [terminalFontDraft, setTerminalFontDraft] = useState(settings.terminalFontFamily);
+  const [terminalSizeDraft, setTerminalSizeDraft] = useState(
+    settings.terminalFontSize > 0 ? String(settings.terminalFontSize) : "",
+  );
   const [uiBaseSizeDraft, setUiBaseSizeDraft] = useState(String(settings.uiBaseFontSize));
   const [contentSizeDraft, setContentSizeDraft] = useState(String(settings.contentFontSize));
   const [codeSizeDraft, setCodeSizeDraft] = useState(String(settings.codeFontSize));
@@ -425,6 +434,9 @@ export function AppearanceSection() {
   useEffect(() => {
     setCodeSizeDraft(String(settings.codeFontSize));
   }, [settings.codeFontSize]);
+  useEffect(() => {
+    setTerminalSizeDraft(settings.terminalFontSize > 0 ? String(settings.terminalFontSize) : "");
+  }, [settings.terminalFontSize]);
 
   const handleThemeChange = useCallback(
     (theme: BuiltInThemePreference) => {
@@ -525,6 +537,48 @@ export function AppearanceSection() {
     }
   }, [contentSizeDraft, settings.contentFontSize, updateSettings]);
 
+  const commitTerminalFontFamily = useCallback(
+    (value: string) => {
+      const sanitized = sanitizeFontFamily(value);
+      if (sanitized === null) {
+        setTerminalFontDraft(settings.terminalFontFamily);
+        return;
+      }
+      setTerminalFontDraft(sanitized);
+      if (sanitized !== settings.terminalFontFamily) {
+        void updateSettings({ terminalFontFamily: sanitized });
+      }
+    },
+    [settings.terminalFontFamily, updateSettings],
+  );
+
+  const handleTerminalSizeChange = useCallback((value: string) => {
+    setTerminalSizeDraft(value.replace(/[^\d]/g, ""));
+  }, []);
+
+  const commitTerminalSize = useCallback(() => {
+    // Empty field means "follow the code size" — stored as 0.
+    if (terminalSizeDraft.length === 0) {
+      if (settings.terminalFontSize !== 0) {
+        void updateSettings({ terminalFontSize: 0 });
+      }
+      return;
+    }
+    const parsed = parseClampedFontSize(terminalSizeDraft, {
+      min: MIN_CODE_FONT_SIZE,
+      max: MAX_CODE_FONT_SIZE,
+    });
+    const next = parsed ?? settings.terminalFontSize;
+    setTerminalSizeDraft(next > 0 ? String(next) : "");
+    if (next !== settings.terminalFontSize) {
+      void updateSettings({ terminalFontSize: next });
+    }
+  }, [terminalSizeDraft, settings.terminalFontSize, updateSettings]);
+
+  const resetTerminalAppearance = useCallback(() => {
+    void updateSettings({ terminalAppearance: DEFAULT_TERMINAL_APPEARANCE });
+  }, [updateSettings]);
+
   // Live-while-typing: the in-progress drafts drive the preview without
   // committing to the global theme. Empty/invalid fields fall back to the
   // theme value inside the preview.
@@ -536,6 +590,30 @@ export function AppearanceSection() {
     }),
     [codeSizeDraft, contentSizeDraft, monoFontDraft],
   );
+
+  const terminalPreviewOverrides = useMemo(
+    () => ({
+      fontFamily: terminalFontDraft,
+      fontSize: sizeDraftToOverride(terminalSizeDraft),
+    }),
+    [terminalFontDraft, terminalSizeDraft],
+  );
+
+  const terminalFontPlaceholder = settings.monoFontFamily.trim() || monoFontPlaceholder;
+
+  const terminalSwatches = useMemo(() => {
+    const a = settings.terminalAppearance;
+    const slots: Array<[slot: string, color: string]> = [
+      ["background", a.background],
+      ["foreground", a.foreground],
+      ["cursor", a.cursorColor],
+      ["cursorText", a.cursorText],
+      ["selectionBackground", a.selectionBackground],
+      ["selectionForeground", a.selectionForeground],
+      ...a.palette.map((color, index) => [`palette${index}`, color] as [string, string]),
+    ];
+    return slots.filter((entry) => entry[1] !== "");
+  }, [settings.terminalAppearance]);
 
   return (
     <View>
@@ -603,6 +681,53 @@ export function AppearanceSection() {
           />
         </View>
       </SettingsSection>
+      <SettingsSection title={t("settings.appearance.terminal.title")}>
+        <View style={settingsStyles.card}>
+          <GhosttyImportCard />
+          <FontFamilyRow
+            title={t("settings.appearance.terminal.font")}
+            hint={t("settings.appearance.terminal.fontHint")}
+            accessibilityLabel={t("settings.appearance.terminal.fontAccessibility")}
+            placeholder={terminalFontPlaceholder}
+            value={settings.terminalFontFamily}
+            draft={terminalFontDraft}
+            withBorder
+            onChangeDraft={setTerminalFontDraft}
+            onCommit={commitTerminalFontFamily}
+          />
+          <FontSizeRow
+            title={t("settings.appearance.terminal.size")}
+            hint={t("settings.appearance.terminal.sizeHint")}
+            accessibilityLabel={t("settings.appearance.terminal.sizeAccessibility")}
+            draft={terminalSizeDraft}
+            onChangeDraft={handleTerminalSizeChange}
+            onCommit={commitTerminalSize}
+          />
+          {hasTerminalAppearanceOverrides(settings.terminalAppearance) ? (
+            <View style={styles.rowWithBorder}>
+              <View style={settingsStyles.rowContent}>
+                <Text style={settingsStyles.rowTitle}>
+                  {t("settings.appearance.terminal.colorsTitle")}
+                </Text>
+                <Text style={settingsStyles.rowHint}>
+                  {t("settings.appearance.terminal.colorsHint")}
+                </Text>
+                <View style={styles.swatchRow}>
+                  {terminalSwatches.map(([slot, color]) => (
+                    <View key={slot} style={[styles.swatch, { backgroundColor: color }]} />
+                  ))}
+                </View>
+              </View>
+              <Button variant="outline" size="sm" onPress={resetTerminalAppearance}>
+                {t("settings.appearance.terminal.colorsReset")}
+              </Button>
+            </View>
+          ) : null}
+        </View>
+        <View style={styles.preview}>
+          <TerminalAppearancePreview overrides={terminalPreviewOverrides} />
+        </View>
+      </SettingsSection>
       <SettingsSection title={t("settings.appearance.syntax.title")}>
         <View style={settingsStyles.card}>
           <SyntaxRow value={settings.syntaxTheme} onChange={handleSyntaxThemeChange} />
@@ -627,6 +752,12 @@ const styles = StyleSheet.create((theme) => ({
     paddingHorizontal: theme.spacing[4],
     borderTopWidth: theme.borderWidth[1],
     borderTopColor: theme.colors.border,
+  },
+  swatchRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: theme.spacing[1],
+    marginTop: theme.spacing[2],
   },
   swatch: {
     width: ICON_SIZE.md,

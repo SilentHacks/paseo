@@ -89,6 +89,12 @@ export interface AppSettings {
   toolCallDetailLevel: ToolCallDetailLevel;
   chatOutlineEnabled: boolean;
   vimKeybindings: boolean;
+  /** Terminal-specific font; empty means follow `monoFontFamily`. */
+  terminalFontFamily: string;
+  /** Terminal-specific size in px; 0 means follow `codeFontSize`. */
+  terminalFontSize: number;
+  /** Terminal color/cursor overrides layered on the active theme's ANSI palette. */
+  terminalAppearance: TerminalAppearanceSettings;
   /** Desktop-only preferences for implicit opens into the ordinary side pane. */
   openInSidePane: OpenInSidePanePreferences;
   pullRequestOpenLocation: PullRequestOpenLocation;
@@ -97,6 +103,34 @@ export interface AppSettings {
 export type AppSettingsUpdate =
   | Partial<AppSettings>
   | ((current: AppSettings) => Partial<AppSettings>);
+
+export interface TerminalAppearanceSettings {
+  /** Empty strings mean "follow the app theme". */
+  background: string;
+  foreground: string;
+  cursorColor: string;
+  cursorText: string;
+  selectionBackground: string;
+  selectionForeground: string;
+  /** "" = default; otherwise an xterm cursor style. */
+  cursorStyle: "" | "block" | "underline" | "bar";
+  /** null = xterm default (blink). */
+  cursorBlink: boolean | null;
+  /** 16 ANSI slots (#rrggbb); empty entries inherit the theme's color at that index. */
+  palette: string[];
+}
+
+export const DEFAULT_TERMINAL_APPEARANCE: TerminalAppearanceSettings = {
+  background: "",
+  foreground: "",
+  cursorColor: "",
+  cursorText: "",
+  selectionBackground: "",
+  selectionForeground: "",
+  cursorStyle: "",
+  cursorBlink: null,
+  palette: [],
+};
 
 export interface OpenInSidePanePreferences {
   explorerFiles: boolean;
@@ -142,6 +176,9 @@ export const DEFAULT_CLIENT_SETTINGS: AppSettings = {
   toolCallDetailLevel: "detailed",
   chatOutlineEnabled: true,
   vimKeybindings: false,
+  terminalFontFamily: "",
+  terminalFontSize: 0,
+  terminalAppearance: DEFAULT_TERMINAL_APPEARANCE,
   openInSidePane: DEFAULT_OPEN_IN_SIDE_PANE_PREFERENCES,
   pullRequestOpenLocation: "explorer",
 };
@@ -162,6 +199,27 @@ function clampedNumber(min: number, max: number) {
 function sanitizedFontFamily() {
   return z.unknown().transform(sanitizeFontFamily).pipe(z.string());
 }
+
+function hexColorOrEmpty() {
+  return z
+    .string()
+    .regex(/^$|^#[0-9a-fA-F]{3}([0-9a-fA-F]{3})?$/)
+    .catch("");
+}
+
+const TerminalAppearanceSchema = z
+  .object({
+    background: hexColorOrEmpty(),
+    foreground: hexColorOrEmpty(),
+    cursorColor: hexColorOrEmpty(),
+    cursorText: hexColorOrEmpty(),
+    selectionBackground: hexColorOrEmpty(),
+    selectionForeground: hexColorOrEmpty(),
+    cursorStyle: z.enum(["", "block", "underline", "bar"]).catch(""),
+    cursorBlink: z.boolean().nullable().catch(null),
+    palette: z.array(hexColorOrEmpty()).catch([]),
+  })
+  .catch(DEFAULT_TERMINAL_APPEARANCE);
 
 const SidebarRowItemsSchema = z
   .looseObject({
@@ -237,6 +295,9 @@ const StoredAppSettingsSchema = z
     compactToolCalls: z.boolean().optional().catch(undefined),
     chatOutlineEnabled: z.boolean().catch(true),
     vimKeybindings: z.boolean().catch(false),
+    terminalFontFamily: sanitizedFontFamily().catch(""),
+    terminalFontSize: clampedNumber(0, MAX_CODE_FONT_SIZE).catch(0),
+    terminalAppearance: TerminalAppearanceSchema,
     openInSidePane: z
       .object({
         explorerFiles: z.boolean().catch(false),

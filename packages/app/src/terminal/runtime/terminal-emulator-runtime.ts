@@ -60,6 +60,8 @@ export interface TerminalEmulatorRuntimeMountInput {
   theme: ITheme;
   fontFamily?: string;
   fontSize?: number;
+  cursorStyle?: "block" | "underline" | "bar";
+  cursorBlink?: boolean;
   isMacLikePlatform?: boolean;
 }
 
@@ -486,8 +488,8 @@ export class TerminalEmulatorRuntime {
     const terminal = new Terminal({
       allowProposedApi: true,
       convertEol: false,
-      cursorBlink: true,
-      cursorStyle: "bar",
+      cursorBlink: input.cursorBlink ?? true,
+      cursorStyle: input.cursorStyle ?? "bar",
       fontFamily: resolveTerminalFontFamily(input.fontFamily),
       fontSize: resolveTerminalFontSize(input.fontSize),
       // OSC 8 hyperlinks; without a handler xterm prompts and calls window.open().
@@ -920,6 +922,26 @@ export class TerminalEmulatorRuntime {
     }
 
     this.fitAndEmitResize?.({ forceRefresh: true, shouldClaim: false });
+    this.refreshVisibleRows();
+  }
+
+  setCursorOptions(input: {
+    cursorStyle?: "block" | "underline" | "bar";
+    cursorBlink?: boolean;
+  }): void {
+    const terminal = this.terminal;
+    if (!terminal) {
+      return;
+    }
+
+    try {
+      terminal.options.cursorStyle = input.cursorStyle ?? "bar";
+      terminal.options.cursorBlink = input.cursorBlink ?? true;
+    } catch {
+      // ignore
+      return;
+    }
+
     this.refreshVisibleRows();
   }
 

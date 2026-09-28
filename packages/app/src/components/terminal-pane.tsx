@@ -53,6 +53,7 @@ import { resolveTerminalRestoreOptions } from "@/terminal/runtime/terminal-resto
 import { usePanelStore } from "@/stores/panel-store";
 import { useBlockMobilePanelOpenGestures } from "@/mobile-panels/provider";
 import { useSessionStore } from "@/stores/session-store";
+import { applyTerminalAppearance } from "@/terminal/apply-terminal-appearance";
 import { toXtermTheme } from "@/utils/to-xterm-theme";
 import TerminalEmulator, { type TerminalEmulatorHandle } from "./terminal-emulator";
 import { TerminalFloatingCopyAction, TerminalPasteAction } from "./terminal-copy-paste-actions";
@@ -216,11 +217,19 @@ export function TerminalPane({
   const isAppActivelyVisible = useAppActivelyVisible();
   const { theme } = useUnistyles();
   const { settings } = useAppSettings();
-  const xtermTheme = useMemo(() => toXtermTheme(theme.colors.terminal), [theme]);
+  const xtermTheme = useMemo(
+    () => applyTerminalAppearance(toXtermTheme(theme.colors.terminal), settings.terminalAppearance),
+    [theme, settings.terminalAppearance],
+  );
   const terminalFontFamily = useMemo(() => {
-    const trimmed = settings.monoFontFamily.trim();
+    const dedicated = settings.terminalFontFamily.trim();
+    const trimmed = dedicated.length > 0 ? dedicated : settings.monoFontFamily.trim();
     return trimmed.length > 0 ? trimmed : undefined;
-  }, [settings.monoFontFamily]);
+  }, [settings.monoFontFamily, settings.terminalFontFamily]);
+  const terminalFontSize =
+    settings.terminalFontSize > 0 ? settings.terminalFontSize : settings.codeFontSize;
+  const cursorStyle = settings.terminalAppearance.cursorStyle || undefined;
+  const cursorBlink = settings.terminalAppearance.cursorBlink ?? undefined;
   const isMobile = useIsCompactFormFactor();
   const mobileView = usePanelStore((state) => state.mobilePanel.target);
   const showMobileAgentList = usePanelStore((state) => state.showMobileAgentList);
@@ -1043,7 +1052,9 @@ export function TerminalPane({
             xtermTheme={xtermTheme}
             scrollbackLines={settings.terminalScrollbackLines}
             fontFamily={terminalFontFamily}
-            fontSize={settings.codeFontSize}
+            fontSize={terminalFontSize}
+            cursorStyle={cursorStyle}
+            cursorBlink={cursorBlink}
             keyboardInset={keyboardInset}
             isKeyboardVisible={isKeyboardVisible}
             swipeGesturesEnabled={swipeGesturesEnabled}

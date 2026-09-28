@@ -111,6 +111,8 @@ interface TerminalEmulatorProps {
   scrollbackLines: number;
   fontFamily?: string;
   fontSize?: number;
+  cursorStyle?: "block" | "underline" | "bar";
+  cursorBlink?: boolean;
   keyboardInset?: number;
   isKeyboardVisible?: boolean;
   swipeGesturesEnabled?: boolean;
@@ -176,6 +178,8 @@ export default function TerminalEmulator({
   scrollbackLines,
   fontFamily,
   fontSize,
+  cursorStyle,
+  cursorBlink,
   swipeGesturesEnabled = false,
   onSwipeLeft,
   onSwipeRight,
@@ -201,10 +205,14 @@ export default function TerminalEmulator({
   const mountedThemeRef = useRef<ITheme>(xtermTheme);
   const fontFamilyRef = useRef(fontFamily);
   const fontSizeRef = useRef(fontSize);
+  const cursorStyleRef = useRef(cursorStyle);
+  const cursorBlinkRef = useRef(cursorBlink);
   const scrollbackLinesRef = useRef(scrollbackLines);
   scrollbackLinesRef.current = scrollbackLines;
   fontFamilyRef.current = fontFamily;
   fontSizeRef.current = fontSize;
+  cursorStyleRef.current = cursorStyle;
+  cursorBlinkRef.current = cursorBlink;
   const themeKey = useMemo(() => buildXtermThemeKey(xtermTheme), [xtermTheme]);
   const xtermThemeRef = useRef(xtermTheme);
   xtermThemeRef.current = xtermTheme;
@@ -482,6 +490,8 @@ export default function TerminalEmulator({
       theme: mountedThemeRef.current,
       fontFamily: fontFamilyRef.current,
       fontSize: fontSizeRef.current,
+      cursorStyle: cursorStyleRef.current,
+      cursorBlink: cursorBlinkRef.current,
     });
     onRendererReadyChangeRef.current?.({ streamKey, isReady: true });
 
@@ -528,6 +538,10 @@ export default function TerminalEmulator({
   useEffect(() => {
     runtimeRef.current?.setFont({ fontFamily, fontSize });
   }, [fontFamily, fontSize]);
+
+  useEffect(() => {
+    runtimeRef.current?.setCursorOptions({ cursorStyle, cursorBlink });
+  }, [cursorStyle, cursorBlink]);
 
   useEffect(() => {
     if (focusRequestToken <= 0) {
