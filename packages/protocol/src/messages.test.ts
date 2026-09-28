@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import {
   FileExplorerRequestSchema,
+  FileExplorerResponseSchema,
   PaseoWorktreeArchiveRequestSchema,
   parseServerInfoStatusPayload,
   SessionInboundMessageSchema,
@@ -434,6 +435,54 @@ describe("file explorer request compatibility", () => {
       requestId: "req-new",
       acceptBinary: true,
     });
+  });
+});
+
+describe("file explorer response compatibility", () => {
+  function listResponse(entries: Record<string, unknown>[]) {
+    return {
+      type: "file_explorer_response",
+      payload: {
+        cwd: "/repo/app",
+        path: ".",
+        mode: "list",
+        directory: { path: ".", entries },
+        file: null,
+        error: null,
+        requestId: "req-list",
+      },
+    };
+  }
+
+  test("entries without gitStatus (old daemon) still parse", () => {
+    const parsed = FileExplorerResponseSchema.parse(
+      listResponse([
+        {
+          name: "app.ts",
+          path: "app.ts",
+          kind: "file",
+          size: 10,
+          modifiedAt: "2025-01-01T00:00:00Z",
+        },
+      ]),
+    );
+    expect(parsed.payload.directory?.entries[0].gitStatus).toBeUndefined();
+  });
+
+  test("entries with gitStatus (new daemon) parse and keep the value", () => {
+    const parsed = FileExplorerResponseSchema.parse(
+      listResponse([
+        {
+          name: "app.ts",
+          path: "app.ts",
+          kind: "file",
+          size: 10,
+          modifiedAt: "2025-01-01T00:00:00Z",
+          gitStatus: "modified",
+        },
+      ]),
+    );
+    expect(parsed.payload.directory?.entries[0].gitStatus).toBe("modified");
   });
 });
 

@@ -4,6 +4,12 @@ import path from "path";
 import { randomUUID } from "crypto";
 import { expandUserPath, resolvePathFromBase } from "../path-utils.js";
 import { runGitCommand } from "../../utils/run-git-command.js";
+import {
+  gitStatusForRoot,
+  invalidateExplorerGitStatus,
+  statusForExplorerEntry,
+  type ExplorerGitStatus,
+} from "./git-status.js";
 
 export type ExplorerEntryKind = "file" | "directory";
 export type ExplorerFileKind = "text" | "image" | "binary";
@@ -48,6 +54,7 @@ export interface FileExplorerEntry {
   kind: ExplorerEntryKind;
   size: number;
   modifiedAt: string;
+  gitStatus?: ExplorerGitStatus;
 }
 
 export interface FileExplorerDirectory {
@@ -175,6 +182,16 @@ export async function listDirectoryEntries({
     }),
   );
   const entries = entriesWithNulls.filter((entry): entry is FileExplorerEntry => entry !== null);
+
+  const gitStatuses = await gitStatusForRoot(root).catch(() => null);
+  if (gitStatuses) {
+    for (const entry of entries) {
+      const status = statusForExplorerEntry(entry.path, entry.kind, gitStatuses);
+      if (status) {
+        entry.gitStatus = status;
+      }
+    }
+  }
 
   entries.sort((a, b) => {
     const modifiedComparison = new Date(b.modifiedAt).getTime() - new Date(a.modifiedAt).getTime();
@@ -437,6 +454,7 @@ export async function writeExplorerFile({
   expectedModifiedAt,
   expectedRevision,
 }: WriteFileParams): Promise<ExplorerFileWriteResult> {
+  invalidateExplorerGitStatus(root);
   const encoded = Buffer.from(content, "utf8");
   if (encoded.byteLength > MAX_EDITABLE_FILE_BYTES) {
     return { status: "error", error: "File is too large to edit" };
@@ -596,6 +614,7 @@ export async function createExplorerEntry({
   name,
   kind,
 }: ExplorerCreateEntryParams): Promise<ExplorerEntryMutationResult> {
+  invalidateExplorerGitStatus(root);
   const trimmedName = name.trim();
   if (!trimmedName || trimmedName === "." || trimmedName === "..") {
     return { status: "error", error: "Invalid name" };
@@ -636,6 +655,7 @@ export async function duplicateExplorerEntry({
   root,
   relativePath,
 }: ReadFileParams): Promise<ExplorerEntryMutationResult> {
+  invalidateExplorerGitStatus(root);
   try {
     const source = await resolveScopedPath({ root, relativePath });
     const realRoot = await fs.realpath(expandUserPath(root));
@@ -684,6 +704,7 @@ export async function renameExplorerEntry({
   relativePath,
   name,
 }: ExplorerRenameEntryParams): Promise<ExplorerEntryMutationResult> {
+  invalidateExplorerGitStatus(root);
   const trimmedName = name.trim();
   if (!trimmedName || trimmedName === "." || trimmedName === "..") {
     return { status: "error", error: "Invalid name" };
@@ -747,6 +768,7 @@ export async function deleteExplorerEntry({
   root,
   relativePath,
 }: ReadFileParams): Promise<ExplorerEntryMutationResult> {
+  invalidateExplorerGitStatus(root);
   try {
     const scoped = await resolveScopedPath({ root, relativePath });
     const realRoot = await fs.realpath(expandUserPath(root));

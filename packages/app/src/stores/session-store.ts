@@ -4,6 +4,7 @@ import { subscribeWithSelector } from "zustand/middleware";
 import type { DaemonClient } from "@getpaseo/client/internal/daemon-client";
 import type { ViewedTimelineOwner } from "@/timeline/viewed-timeline-sync";
 import type { AgentDirectoryEntry } from "@/types/agent-directory";
+import type { ExplorerGitStatus } from "@/file-explorer/git-status";
 import {
   appendSubmittedUserMessage,
   handoffCreatedAgentUserMessageToStream,
@@ -239,6 +240,7 @@ export interface ExplorerEntry {
   kind: ExplorerEntryKind;
   size: number;
   modifiedAt: string;
+  gitStatus?: ExplorerGitStatus;
 }
 
 export interface ExplorerFile {
