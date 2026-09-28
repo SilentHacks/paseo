@@ -2277,10 +2277,18 @@ export const fr: TranslationResources = {
         sizeAccessibility: "Taille de police du terminal",
         colorsTitle: "Couleurs personnalisées du terminal",
         colorsHint: "Remplace les couleurs du terminal du thème actif",
+        colorsEmpty: "Utilise les couleurs de terminal du thème actif",
         colorsReset: "Réinitialiser",
         importTitle: "Configuration Ghostty",
         importHint: "Importer la police et les couleurs depuis un fichier de configuration Ghostty",
         importAction: "Importer",
+        importFoundHint:
+          "Configuration trouvée dans {{path}} — vérifiez-la ou choisissez un autre fichier",
+        importReview: "Vérifier",
+        importFoundPath: "Source : {{path}}",
+        importSpecifyFile: "Choisir un autre fichier",
+        importNoConfig:
+          "Aucune configuration Ghostty trouvée — choisissez un fichier ou collez son contenu",
         importChooseFile: "Choisir un fichier de configuration",
         importPastePlaceholder: "Collez le contenu de votre configuration Ghostty",
         importParse: "Analyser",
