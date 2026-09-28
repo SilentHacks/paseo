@@ -1,4 +1,5 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
+import { homedir } from "node:os";
 import path from "node:path";
 import { app, ipcMain, powerMonitor } from "electron";
 import log from "electron-log/main";
@@ -388,6 +389,26 @@ async function resolveRequestedReleaseChannel(
   return parseReleaseChannel(args) ?? (await getDesktopSettingsStore().get()).releaseChannel;
 }
 
+function readGhosttyConfigFile(): { path: string; contents: string } | null {
+  const home = homedir();
+  const candidates = [
+    ...(process.env.XDG_CONFIG_HOME
+      ? [path.join(process.env.XDG_CONFIG_HOME, "ghostty", "config")]
+      : []),
+    path.join(home, ".config", "ghostty", "config"),
+    path.join(home, "Library", "Application Support", "com.mitchellh.ghostty", "config"),
+  ];
+  for (const candidate of candidates) {
+    try {
+      if (!existsSync(candidate)) continue;
+      return { path: candidate, contents: readFileSync(candidate, "utf8") };
+    } catch {
+      continue;
+    }
+  }
+  return null;
+}
+
 // ---------------------------------------------------------------------------
 // IPC registration
 // ---------------------------------------------------------------------------
@@ -423,6 +444,7 @@ export function createDaemonCommandHandlers(): Record<string, DesktopCommandHand
     desktop_app_logs: () => getDesktopAppLogs(),
     desktop_update_diagnostics: () => getDesktopUpdaterDiagnostics(),
     desktop_get_system_idle_time: () => powerMonitor.getSystemIdleTime() * 1000,
+    desktop_read_ghostty_config: () => readGhosttyConfigFile(),
     cli_daemon_status: () => getCliDaemonStatus(),
     write_attachment_base64: (args) => writeAttachmentBase64(args ?? {}),
     write_attachment_bytes: (args) => writeAttachmentBytes(args ?? {}),

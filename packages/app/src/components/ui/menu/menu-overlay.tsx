@@ -306,7 +306,7 @@ export function AnchoredSurface({
       document
         .getElementById(surfaceNativeID)
         ?.querySelector<HTMLElement>('[data-menu-item="true"]:not([data-menu-disabled="true"])')
-        ?.focus();
+        ?.focus({ preventScroll: true });
     });
     return () => cancelAnimationFrame(frame);
   }, [open, placed, surfaceNativeID]);

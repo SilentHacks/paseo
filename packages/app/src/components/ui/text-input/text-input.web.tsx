@@ -28,6 +28,18 @@ export const EditingTextInput = forwardRef<EditingTextInputHandle, EditingTextIn
     const onChangeTextRef = useRef(onChangeText);
     onChangeTextRef.current = onChangeText;
 
+    // The input is uncontrolled (defaultValue seeds once), so re-seed it when
+    // initialValue changes after mount — e.g. an import or a reset writing the
+    // backing setting. While the field itself is being typed in, the parent's
+    // draft echoes the same string back and this is a no-op.
+    useEffect(() => {
+      const input = inputRef.current as WebTextInputElement | null;
+      textRef.current = initialValue;
+      if (!input || !("value" in input)) return;
+      if (input.value === initialValue) return;
+      input.value = initialValue;
+    }, [initialValue]);
+
     useEffect(() => {
       const input = inputRef.current as WebTextInputElement | null;
       if (!input) return;

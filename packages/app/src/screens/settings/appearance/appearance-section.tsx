@@ -680,6 +680,9 @@ export function AppearanceSection() {
             onCommit={commitCodeSize}
           />
         </View>
+        <View style={styles.preview}>
+          <AppearancePreview overrides={previewOverrides} />
+        </View>
       </SettingsSection>
       <SettingsSection title={t("settings.appearance.terminal.title")}>
         <View style={settingsStyles.card}>
@@ -703,26 +706,30 @@ export function AppearanceSection() {
             onChangeDraft={handleTerminalSizeChange}
             onCommit={commitTerminalSize}
           />
-          {hasTerminalAppearanceOverrides(settings.terminalAppearance) ? (
-            <View style={styles.rowWithBorder}>
-              <View style={settingsStyles.rowContent}>
-                <Text style={settingsStyles.rowTitle}>
-                  {t("settings.appearance.terminal.colorsTitle")}
-                </Text>
-                <Text style={settingsStyles.rowHint}>
-                  {t("settings.appearance.terminal.colorsHint")}
-                </Text>
+          <View style={styles.rowWithBorder}>
+            <View style={settingsStyles.rowContent}>
+              <Text style={settingsStyles.rowTitle}>
+                {t("settings.appearance.terminal.colorsTitle")}
+              </Text>
+              <Text style={settingsStyles.rowHint}>
+                {hasTerminalAppearanceOverrides(settings.terminalAppearance)
+                  ? t("settings.appearance.terminal.colorsHint")
+                  : t("settings.appearance.terminal.colorsEmpty")}
+              </Text>
+              {terminalSwatches.length > 0 ? (
                 <View style={styles.swatchRow}>
                   {terminalSwatches.map(([slot, color]) => (
                     <View key={slot} style={[styles.swatch, { backgroundColor: color }]} />
                   ))}
                 </View>
-              </View>
+              ) : null}
+            </View>
+            {hasTerminalAppearanceOverrides(settings.terminalAppearance) ? (
               <Button variant="outline" size="sm" onPress={resetTerminalAppearance}>
                 {t("settings.appearance.terminal.colorsReset")}
               </Button>
-            </View>
-          ) : null}
+            ) : null}
+          </View>
         </View>
         <View style={styles.preview}>
           <TerminalAppearancePreview overrides={terminalPreviewOverrides} />
@@ -731,9 +738,6 @@ export function AppearanceSection() {
       <SettingsSection title={t("settings.appearance.syntax.title")}>
         <View style={settingsStyles.card}>
           <SyntaxRow value={settings.syntaxTheme} onChange={handleSyntaxThemeChange} />
-        </View>
-        <View style={styles.preview}>
-          <AppearancePreview overrides={previewOverrides} />
         </View>
       </SettingsSection>
     </View>

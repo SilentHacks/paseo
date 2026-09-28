@@ -1,9 +1,10 @@
 import { useMemo, type ReactNode } from "react";
-import { ScrollView, Text, View } from "react-native";
+import { Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StyleSheet } from "react-native-unistyles";
 import { BackHeader } from "@/components/headers/back-header";
 import { MenuHeader } from "@/components/headers/menu-header";
+import { ScrollView } from "@/components/ui/scroll-view";
 import { useIsCompactFormFactor } from "@/constants/layout";
 
 interface PageLayoutProps {

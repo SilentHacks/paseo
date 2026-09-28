@@ -2272,10 +2272,18 @@ export const es: TranslationResources = {
         sizeAccessibility: "Tamaño de fuente del terminal",
         colorsTitle: "Colores personalizados del terminal",
         colorsHint: "Sobrescribe los colores del terminal del tema activo",
+        colorsEmpty: "Usa los colores de terminal del tema activo",
         colorsReset: "Restablecer",
         importTitle: "Configuración de Ghostty",
         importHint: "Importa fuente y colores desde un archivo de configuración de Ghostty",
         importAction: "Importar",
+        importFoundHint:
+          "Se encontró una configuración en {{path}} — revísela o elija otro archivo",
+        importReview: "Revisar",
+        importFoundPath: "Origen: {{path}}",
+        importSpecifyFile: "Usar otro archivo",
+        importNoConfig:
+          "No se encontró ninguna configuración de Ghostty: elija un archivo o pegue su contenido",
         importChooseFile: "Elegir archivo de configuración",
         importPastePlaceholder: "Pega el contenido de tu configuración de Ghostty",
         importParse: "Analizar",

@@ -1,16 +1,18 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Text, View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 import { Button } from "@/components/ui/button";
 import { EditingTextInput as TextInput } from "@/components/ui/text-input";
-import { isWeb } from "@/constants/platform";
+import { getIsElectron, isWeb } from "@/constants/platform";
+import { invokeDesktopCommand } from "@/desktop/electron/invoke";
 import { parseTerminalScrollbackLines, useAppSettings } from "@/hooks/use-settings";
 import { settingsStyles } from "@/styles/settings";
 import { mergeTerminalAppearance } from "@/terminal/apply-terminal-appearance";
 import { parseGhosttyConfig, type GhosttyImportResult } from "@/terminal/ghostty-config";
 
 type Phase = "idle" | "input" | "preview";
+type AutoLocate = "idle" | "pending" | "found" | "failed" | "unavailable";
 
 function readConfigFile(onRead: (text: string) => void): void {
   const input = document.createElement("input");
@@ -24,24 +26,67 @@ function readConfigFile(onRead: (text: string) => void): void {
   input.click();
 }
 
-// Inline import flow for the Terminal settings section: pick or paste a Ghostty
-// config, review the keys that will apply vs. the ones we can't render, then
-// commit. Applied values land as a sparse patch — keys absent from the file are
-// never touched.
+// Inline import flow for the Terminal settings section. On desktop the card
+// auto-locates the Ghostty config at its standard paths on mount; picking a
+// file or pasting remains available as a manual override everywhere. Applied
+// values land as a sparse patch — keys absent from the file are never touched.
 export function GhosttyImportCard() {
   const { t } = useTranslation();
   const { settings, updateSettings } = useAppSettings();
   const [phase, setPhase] = useState<Phase>("idle");
   const [draft, setDraft] = useState("");
   const [result, setResult] = useState<GhosttyImportResult | null>(null);
+  const [sourcePath, setSourcePath] = useState<string | null>(null);
+  const [locatedText, setLocatedText] = useState<string | null>(null);
+  const [autoLocate, setAutoLocate] = useState<AutoLocate>("idle");
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   const parse = useCallback((text: string) => {
     setResult(parseGhosttyConfig(text));
     setPhase("preview");
   }, []);
 
+  const tryAutoLocate = useCallback(
+    async (enterInputOnMiss: boolean) => {
+      if (!getIsElectron()) {
+        setAutoLocate("unavailable");
+        return;
+      }
+      setAutoLocate("pending");
+      try {
+        const found = await invokeDesktopCommand<{ path: string; contents: string } | null>(
+          "desktop_read_ghostty_config",
+        );
+        if (!mountedRef.current) return;
+        if (found && found.contents.trim().length > 0) {
+          setSourcePath(found.path);
+          setLocatedText(found.contents);
+          setAutoLocate("found");
+          parse(found.contents);
+          return;
+        }
+      } catch {
+        if (!mountedRef.current) return;
+      }
+      setAutoLocate("failed");
+      if (enterInputOnMiss) setPhase("input");
+    },
+    [parse],
+  );
+
+  useEffect(() => {
+    void tryAutoLocate(false);
+  }, [tryAutoLocate]);
+
   const chooseFile = useCallback(() => {
     readConfigFile((text) => {
+      setSourcePath(null);
       setDraft(text);
       parse(text);
     });
@@ -51,7 +96,20 @@ export function GhosttyImportCard() {
     setPhase("input");
   }, []);
 
+  const startImport = useCallback(() => {
+    if (autoLocate === "found" && locatedText !== null) {
+      parse(locatedText);
+      return;
+    }
+    if (getIsElectron()) {
+      void tryAutoLocate(true);
+      return;
+    }
+    setPhase("input");
+  }, [autoLocate, locatedText, parse, tryAutoLocate]);
+
   const handleParse = useCallback(() => {
+    setSourcePath(null);
     parse(draft);
   }, [parse, draft]);
 
@@ -93,10 +151,22 @@ export function GhosttyImportCard() {
           <Text style={settingsStyles.rowTitle}>
             {t("settings.appearance.terminal.importTitle")}
           </Text>
-          <Text style={settingsStyles.rowHint}>{t("settings.appearance.terminal.importHint")}</Text>
+          <Text style={settingsStyles.rowHint}>
+            {autoLocate === "found" && sourcePath
+              ? t("settings.appearance.terminal.importFoundHint", { path: sourcePath })
+              : t("settings.appearance.terminal.importHint")}
+          </Text>
         </View>
-        <Button variant="outline" size="sm" testID="ghostty-import-open" onPress={openInput}>
-          {t("settings.appearance.terminal.importAction")}
+        <Button
+          variant="outline"
+          size="sm"
+          testID="ghostty-import-open"
+          onPress={startImport}
+          disabled={autoLocate === "pending"}
+        >
+          {autoLocate === "found"
+            ? t("settings.appearance.terminal.importReview")
+            : t("settings.appearance.terminal.importAction")}
         </Button>
       </View>
     );
@@ -105,6 +175,11 @@ export function GhosttyImportCard() {
   if (phase === "input") {
     return (
       <View style={styles.inputBlock}>
+        {autoLocate === "failed" ? (
+          <Text style={styles.unsupportedText}>
+            {t("settings.appearance.terminal.importNoConfig")}
+          </Text>
+        ) : null}
         {isWeb ? (
           <Button variant="secondary" size="sm" testID="ghostty-import-file" onPress={chooseFile}>
             {t("settings.appearance.terminal.importChooseFile")}
@@ -138,6 +213,11 @@ export function GhosttyImportCard() {
   const unsupported = result?.unsupported ?? [];
   return (
     <View style={styles.inputBlock}>
+      {sourcePath ? (
+        <Text style={styles.unsupportedText}>
+          {t("settings.appearance.terminal.importFoundPath", { path: sourcePath })}
+        </Text>
+      ) : null}
       {appliedCount > 0 ? (
         <Text style={styles.appliedText}>
           {t("settings.appearance.terminal.importApplied", {
@@ -155,6 +235,9 @@ export function GhosttyImportCard() {
         </Text>
       ) : null}
       <View style={styles.actions}>
+        <Button variant="outline" size="sm" testID="ghostty-import-different" onPress={openInput}>
+          {t("settings.appearance.terminal.importSpecifyFile")}
+        </Button>
         <Button
           variant="default"
           size="sm"

@@ -1,6 +1,7 @@
 import React, {
   forwardRef,
   useCallback,
+  useEffect,
   useImperativeHandle,
   useRef,
   useReducer,
@@ -64,6 +65,23 @@ export const EditingTextInput = forwardRef<EditingTextInputHandle, EditingTextIn
       inputRef.current = input;
       if (input) isAwaitingReplacementRef.current = false;
     }, []);
+
+    // The input is uncontrolled (defaultValue seeds once), so re-seed it when
+    // initialValue changes after mount — e.g. an import or a reset writing the
+    // backing setting. While the field itself is being typed in, the parent's
+    // draft echoes the same string back and this is a no-op.
+    useEffect(() => {
+      if (initialValue === textRef.current) return;
+      const nextText = initialValue;
+      textRef.current = nextText;
+      const input = inputRef.current;
+      if (!input) return;
+      if (input.replaceText) {
+        input.replaceText(nextText);
+        return;
+      }
+      input.setNativeProps?.({ text: nextText });
+    }, [initialValue]);
 
     const setReplacementFocus = useCallback((autoFocus: boolean) => {
       setReplacement((current) => ({ ...current, autoFocus }));

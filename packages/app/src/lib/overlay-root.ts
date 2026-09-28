@@ -134,7 +134,7 @@ function focusFirstElement(scope: HTMLElement): void {
     '[data-menu-item="true"]:not([data-menu-disabled="true"])',
   );
   const first = firstMenuItem ?? getFocusableElements(scope)[0];
-  (first ?? scope).focus();
+  (first ?? scope).focus({ preventScroll: true });
 }
 
 function handleWebOverlayFocus(event: FocusEvent): void {
@@ -229,7 +229,7 @@ function addWebOverlay(entry: WebOverlayEntry): (options?: RemoveWebOverlayOptio
       entry.restoreFocus &&
       document.contains(entry.restoreFocus)
     ) {
-      entry.restoreFocus.focus();
+      entry.restoreFocus.focus({ preventScroll: true });
     }
   };
 }
