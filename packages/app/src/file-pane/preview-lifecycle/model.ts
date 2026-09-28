@@ -4,11 +4,12 @@ import { persistAttachmentFromBytes } from "@/attachments/service";
 import { createPreviewAttachmentId, getFileNameFromPath } from "@/attachments/utils";
 import { explorerFileFromReadResult } from "@/file-explorer/read-result";
 import type { ExplorerFile } from "@/stores/session-store";
+import { resolveVideoMimeType } from "../media-preview";
 import type { LiveFileSnapshot } from "../live-file/model";
 
 export interface FilePanePreview {
   file: ExplorerFile;
-  imageAttachment: AttachmentMetadata | null;
+  mediaAttachment: AttachmentMetadata | null;
 }
 
 export type FilePreviewLifecycleSnapshot =
@@ -24,24 +25,27 @@ const initialSnapshot: FilePreviewLifecycleSnapshot = { status: "initial" };
 /** Converts a completed raw read into the preview resources consumed by FilePane. */
 export async function createFilePanePreview(file: FileReadResult): Promise<FilePanePreview | null> {
   const explorerFile = explorerFileFromReadResult(file);
-  if (file.kind !== "image") {
-    return { file: explorerFile, imageAttachment: null };
+  const videoMime = resolveVideoMimeType({ mimeType: file.mime, path: file.path });
+  const isMedia = file.kind === "image" || videoMime !== undefined;
+  if (!isMedia) {
+    return { file: explorerFile, mediaAttachment: null };
   }
 
-  const imageAttachment = await persistAttachmentFromBytes({
+  const resolvedMime = videoMime ?? file.mime;
+  const mediaAttachment = await persistAttachmentFromBytes({
     id: createPreviewAttachmentId({
-      mimeType: file.mime,
+      mimeType: resolvedMime,
       path: file.path,
       size: file.size,
       modifiedAt: file.modifiedAt,
       contentLength: file.bytes.byteLength,
     }),
     bytes: file.bytes,
-    mimeType: file.mime,
+    mimeType: resolvedMime,
     fileName: getFileNameFromPath(file.path),
   });
 
-  return { file: explorerFile, imageAttachment };
+  return { file: explorerFile, mediaAttachment };
 }
 
 /** Owns conversion after LiveFileModel has produced a raw file snapshot. */
@@ -135,10 +139,10 @@ export function filePreviewFromLifecycle(
 
 export function resolveFilePreviewLifecycle(snapshot: FilePreviewLifecycleSnapshot): {
   file: ExplorerFile | null;
-  imageAttachment: AttachmentMetadata | null;
+  mediaAttachment: AttachmentMetadata | null;
 } {
   const preview = filePreviewFromLifecycle(snapshot);
-  return preview ?? { file: null, imageAttachment: null };
+  return preview ?? { file: null, mediaAttachment: null };
 }
 
 function getReadySource(input: {

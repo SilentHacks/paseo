@@ -1,6 +1,7 @@
 import { Text, View } from "react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { useTranslation } from "react-i18next";
+import { Button } from "@/components/ui/button";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { PaneContentToolbar } from "@/components/ui/pane-content-toolbar";
 import { SegmentedControl } from "@/components/ui/segmented-control";
@@ -20,6 +21,7 @@ export function FilePanelBar({
   cursor,
   vimMode,
   conflict,
+  onDownload,
 }: {
   size: number;
   lineCount?: number;
@@ -29,6 +31,7 @@ export function FilePanelBar({
   cursor?: { line: number; column: number };
   vimMode?: string | null;
   conflict?: FileConflictAlertState;
+  onDownload?: () => void;
 }) {
   const { t } = useTranslation();
   const previewModes = [
@@ -107,6 +110,11 @@ export function FilePanelBar({
               testID="file-preview-mode"
               options={previewModes}
             />
+          ) : null}
+          {onDownload ? (
+            <Button variant="outline" size="sm" onPress={onDownload} testID="file-download">
+              {t("panels.fileActions.download")}
+            </Button>
           ) : null}
         </View>
       </PaneContentToolbar>

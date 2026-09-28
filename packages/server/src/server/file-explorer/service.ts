@@ -123,6 +123,21 @@ const IMAGE_MIME_TYPES: Record<string, string> = {
   ".svg": "image/svg+xml",
 };
 
+// Videos stay `kind: "binary"` (the wire enum is unchanged) but carry their
+// real mime so clients can offer a media preview without sniffing bytes.
+const VIDEO_MIME_TYPES: Record<string, string> = {
+  ".mp4": "video/mp4",
+  ".m4v": "video/mp4",
+  ".mov": "video/quicktime",
+  ".webm": "video/webm",
+  ".mkv": "video/x-matroska",
+  ".avi": "video/x-msvideo",
+};
+
+function binaryMimeTypeForExtension(ext: string): string {
+  return VIDEO_MIME_TYPES[ext] ?? "application/octet-stream";
+}
+
 interface ScopedPathParams {
   root: string;
   relativePath?: string;
@@ -272,7 +287,7 @@ export async function readExplorerFileBytes({
         kind: "binary",
         encoding: "binary",
         bytes: buffer,
-        mimeType: "application/octet-stream",
+        mimeType: binaryMimeTypeForExtension(ext),
       };
     }
 
@@ -313,7 +328,7 @@ export async function streamExplorerFile(
       mimeType = IMAGE_MIME_TYPES[ext];
     } else if (isBinary) {
       kind = "binary";
-      mimeType = "application/octet-stream";
+      mimeType = binaryMimeTypeForExtension(ext);
     }
 
     await consume({

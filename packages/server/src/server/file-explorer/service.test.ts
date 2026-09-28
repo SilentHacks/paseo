@@ -213,6 +213,46 @@ describe("file explorer service", () => {
     }
   });
 
+  it("labels known video extensions with their video mime", async () => {
+    const root = await createTempDir("paseo-file-explorer-video-");
+
+    try {
+      const filePath = path.join(root, "clip.mp4");
+      // Null bytes keep the sniff on the binary path — the extension decides the mime.
+      await writeFile(filePath, Buffer.from([0x00, 0x00, 0x00, 0x20, 0x66, 0x74, 0x79, 0x70]));
+
+      const result = await readExplorerFile({
+        root,
+        relativePath: "clip.mp4",
+      });
+
+      expect(result.kind).toBe("binary");
+      expect(result.mimeType).toBe("video/mp4");
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("labels streamed video files with their video mime", async () => {
+    const root = await createTempDir("paseo-file-stream-video-");
+
+    try {
+      await writeFile(path.join(root, "clip.webm"), Buffer.from([0x1a, 0x45, 0xdf, 0xa3, 0x00]));
+      let kind: string | undefined;
+      let mimeType: string | undefined;
+
+      await streamExplorerFile({ root, relativePath: "clip.webm" }, async (file) => {
+        kind = file.kind;
+        mimeType = file.mimeType;
+      });
+
+      expect(kind).toBe("binary");
+      expect(mimeType).toBe("video/webm");
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("fails a stream when the file grows after its revision is advertised", async () => {
     const root = await createTempDir("paseo-file-stream-growth-");
 
