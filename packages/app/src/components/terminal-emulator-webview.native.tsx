@@ -43,6 +43,8 @@ type BridgeInboundMessage =
       theme: ITheme;
       fontFamily?: string;
       fontSize?: number;
+      cursorStyle?: "block" | "underline" | "bar";
+      cursorBlink?: boolean;
       pendingModifiers: PendingTerminalModifiers;
       swipeGesturesEnabled: boolean;
     }
@@ -60,6 +62,12 @@ type BridgeInboundMessage =
   | { type: "setTheme"; streamKey: string; theme: ITheme }
   | { type: "setScrollback"; streamKey: string; lines: number }
   | { type: "setFont"; streamKey: string; fontFamily?: string; fontSize?: number }
+  | {
+      type: "setCursorOptions";
+      streamKey: string;
+      cursorStyle?: "block" | "underline" | "bar";
+      cursorBlink?: boolean;
+    }
   | { type: "setPendingModifiers"; streamKey: string; pendingModifiers: PendingTerminalModifiers }
   | { type: "setSwipeGesturesEnabled"; streamKey: string; enabled: boolean }
   | {
@@ -138,6 +146,8 @@ function createMountMessage(input: {
   theme: ITheme;
   fontFamily?: string;
   fontSize?: number;
+  cursorStyle?: "block" | "underline" | "bar";
+  cursorBlink?: boolean;
   pendingModifiers: PendingTerminalModifiers;
   swipeGesturesEnabled: boolean;
 }): BridgeInboundMessage {
@@ -149,6 +159,8 @@ function createMountMessage(input: {
     theme: input.theme,
     fontFamily: input.fontFamily,
     fontSize: input.fontSize,
+    cursorStyle: input.cursorStyle,
+    cursorBlink: input.cursorBlink,
     pendingModifiers: input.pendingModifiers,
     swipeGesturesEnabled: input.swipeGesturesEnabled,
   };
@@ -166,6 +178,8 @@ export default function WebViewTerminalEmulator({
   scrollbackLines,
   fontFamily,
   fontSize,
+  cursorStyle,
+  cursorBlink,
   swipeGesturesEnabled = false,
   onSwipeLeft,
   onSwipeRight,
@@ -205,6 +219,8 @@ export default function WebViewTerminalEmulator({
     theme: xtermTheme,
     fontFamily,
     fontSize,
+    cursorStyle,
+    cursorBlink,
     pendingModifiers,
     swipeGesturesEnabled,
   });
@@ -215,6 +231,8 @@ export default function WebViewTerminalEmulator({
     theme: xtermTheme,
     fontFamily,
     fontSize,
+    cursorStyle,
+    cursorBlink,
     pendingModifiers,
     swipeGesturesEnabled,
   };
@@ -413,6 +431,11 @@ export default function WebViewTerminalEmulator({
     if (!mountRequestedStreamKeyRef.current) return;
     sendToWebView({ type: "setFont", streamKey, fontFamily, fontSize });
   }, [fontFamily, fontSize, sendToWebView, streamKey]);
+
+  useEffect(() => {
+    if (!mountRequestedStreamKeyRef.current) return;
+    sendToWebView({ type: "setCursorOptions", streamKey, cursorStyle, cursorBlink });
+  }, [cursorStyle, cursorBlink, sendToWebView, streamKey]);
 
   useEffect(() => {
     if (!mountRequestedStreamKeyRef.current) return;

@@ -28,6 +28,7 @@ import {
   MIN_CONTENT_FONT_SIZE,
   MIN_TERMINAL_SCROLLBACK_LINES,
   MIN_UI_BASE_FONT_SIZE,
+  DEFAULT_TERMINAL_APPEARANCE,
   loadAppSettingsFromStorage as loadAppSettingsFromStoragePure,
   loadSettingsFromStorage as loadSettingsFromStoragePure,
   normalizeAppSettings,
@@ -47,6 +48,7 @@ import {
   type Settings,
   type SidebarWorkspaceTrailing,
   type SettingsDeps,
+  type TerminalAppearanceSettings,
   type WorkspaceTitleSource,
 } from "./storage";
 
@@ -56,6 +58,7 @@ export {
   DEFAULT_CLIENT_SETTINGS,
   DEFAULT_CODE_FONT_SIZE,
   DEFAULT_CONTENT_FONT_SIZE,
+  DEFAULT_TERMINAL_APPEARANCE,
   DEFAULT_TERMINAL_SCROLLBACK_LINES,
   DEFAULT_THEME_PREFERENCE,
   DEFAULT_UI_BASE_FONT_SIZE,
@@ -85,6 +88,7 @@ export type {
   Settings,
   SettingsDeps,
   SidebarWorkspaceTrailing,
+  TerminalAppearanceSettings,
   WorkspaceTitleSource,
 };
 

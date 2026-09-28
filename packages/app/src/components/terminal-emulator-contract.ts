@@ -38,6 +38,8 @@ export interface TerminalEmulatorProps {
   scrollbackLines: number;
   fontFamily?: string;
   fontSize?: number;
+  cursorStyle?: "block" | "underline" | "bar";
+  cursorBlink?: boolean;
   keyboardInset?: number;
   isKeyboardVisible?: boolean;
   swipeGesturesEnabled?: boolean;

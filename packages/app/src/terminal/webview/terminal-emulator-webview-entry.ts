@@ -21,6 +21,8 @@ interface MountMessage {
   theme: ITheme;
   fontFamily?: string;
   fontSize?: number;
+  cursorStyle?: "block" | "underline" | "bar";
+  cursorBlink?: boolean;
   pendingModifiers: PendingTerminalModifiers;
   swipeGesturesEnabled: boolean;
 }
@@ -41,6 +43,12 @@ type InboundMessage =
   | { type: "setTheme"; streamKey: string; theme: ITheme }
   | { type: "setScrollback"; streamKey: string; lines: number }
   | { type: "setFont"; streamKey: string; fontFamily?: string; fontSize?: number }
+  | {
+      type: "setCursorOptions";
+      streamKey: string;
+      cursorStyle?: "block" | "underline" | "bar";
+      cursorBlink?: boolean;
+    }
   | { type: "setPendingModifiers"; streamKey: string; pendingModifiers: PendingTerminalModifiers }
   | { type: "setSwipeGesturesEnabled"; streamKey: string; enabled: boolean }
   | {
@@ -303,6 +311,12 @@ class TerminalWebViewBridge {
       case "setFont":
         this.runtime?.setFont({ fontFamily: message.fontFamily, fontSize: message.fontSize });
         return true;
+      case "setCursorOptions":
+        this.runtime?.setCursorOptions({
+          cursorStyle: message.cursorStyle,
+          cursorBlink: message.cursorBlink,
+        });
+        return true;
       case "setPendingModifiers":
         this.runtime?.setPendingModifiers({ pendingModifiers: message.pendingModifiers });
         return true;
@@ -364,6 +378,8 @@ class TerminalWebViewBridge {
       theme: message.theme,
       fontFamily: message.fontFamily,
       fontSize: message.fontSize,
+      cursorStyle: message.cursorStyle,
+      cursorBlink: message.cursorBlink,
     });
     sendToNative({ type: "rendererReady", streamKey: message.streamKey, isReady: true });
   }
