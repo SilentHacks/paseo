@@ -31,6 +31,17 @@
 
 <p align="center">One interface for Claude Code, Codex, Copilot, OpenCode, and Pi agents.</p>
 
+> [!NOTE]
+> **paseo-plus** — a maintained fork of [getpaseo/paseo](https://github.com/getpaseo/paseo). `main` mirrors upstream; `custom` is the integration branch carrying fork-only changes on top:
+>
+> - macOS terminal keybindings (cmd+arrows, cmd+⌫, opt+word jump — iTerm2 Natural Text Editing map)
+> - Git status badges in the file explorer (added/modified/untracked/conflicted, auto-refreshed)
+> - In-app video preview + download for binary files, working over the relay
+> - Terminal appearance settings + Ghostty config import (font, ANSI palette, cursor, selection)
+> - ACP provider fixes: context-window meter, Cursor model refresh, Devin slash commands, chat search
+>
+> `custom` tracks upstream `main` via periodic merges. Day-to-day work happens as PRs into `custom`.
+
 <p align="center">
   <img src="https://paseo.sh/hero-mockup.png" alt="Paseo app screenshot" width="100%">
 </p>
