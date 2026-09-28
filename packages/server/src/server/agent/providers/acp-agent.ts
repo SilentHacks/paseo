@@ -208,7 +208,8 @@ function toACPRequestError(error: unknown): Error {
   const summary = summarizeACPRequestError(error);
   const next = new Error(summary.message);
   next.name = "ACPRequestError";
-  return next;
+  // Keep the JSON-RPC code/data so callers can still classify the failure kind.
+  return Object.assign(next, { code: error.code, data: error.data });
 }
 
 function resolveTerminalCommand(
