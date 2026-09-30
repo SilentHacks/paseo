@@ -13,6 +13,8 @@ interface PageLayoutProps {
   onBack?: () => void;
   testID?: string;
   titleTestID?: string;
+  /** Controls for the whole page: right of the title on desktop, in the back header on compact. */
+  actions?: ReactNode;
   children: ReactNode;
 }
 
@@ -21,7 +23,14 @@ interface PageLayoutProps {
  * document heading inside the page and the header only keeps the titlebar drag
  * region and window controls; on compact the title moves into a back header.
  */
-export function PageLayout({ title, onBack, testID, titleTestID, children }: PageLayoutProps) {
+export function PageLayout({
+  title,
+  onBack,
+  testID,
+  titleTestID,
+  actions,
+  children,
+}: PageLayoutProps) {
   const isCompact = useIsCompactFormFactor();
   const insets = useSafeAreaInsets();
   const scrollContentStyle = useMemo(() => ({ paddingBottom: insets.bottom }), [insets.bottom]);
@@ -29,14 +38,19 @@ export function PageLayout({ title, onBack, testID, titleTestID, children }: Pag
 
   return (
     <View style={styles.container}>
-      {isCompact ? <BackHeader title={title} onBack={onBack} /> : <MenuHeader borderless />}
+      {isCompact ? (
+        <BackHeader title={title} onBack={onBack} rightContent={actions} />
+      ) : (
+        <MenuHeader borderless />
+      )}
       <ScrollView style={styles.scroll} contentContainerStyle={scrollContentStyle} testID={testID}>
         <View style={styles.content}>
           {showTitle ? (
-            <View testID={titleTestID}>
+            <View style={styles.titleRow} testID={titleTestID}>
               <Text style={styles.title} testID="page-title">
                 {title}
               </Text>
+              {actions}
             </View>
           ) : null}
           {children}
@@ -61,10 +75,16 @@ const styles = StyleSheet.create((theme) => ({
     maxWidth: 720,
     alignSelf: "center",
   },
+  titleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: theme.spacing[4],
+    marginBottom: theme.spacing[6],
+  },
   title: {
     // Line up with the section titles, which sit inset from their cards.
     marginLeft: theme.spacing[1],
-    marginBottom: theme.spacing[6],
     fontSize: theme.fontSize["4xl"],
     fontWeight: theme.fontWeight.medium,
     color: theme.colors.foreground,
