@@ -314,6 +314,35 @@ describe("server data push router", () => {
       });
   });
 
+  it("invalidates the announced scope when applying a snapshot update fails", async () => {
+    const queryClient = new QueryClient();
+    const fake = createFakeClient();
+    const serverId = "server-1";
+    const cwd = "/repo";
+    const queryKey = providersSnapshotQueryKey(serverId, cwd);
+    queryClient.setQueryData(queryKey, {
+      entries: [],
+      generatedAt: "2026-01-01T00:00:00.000Z",
+      requestId: "previous",
+    });
+    const unmount = mountServerDataPushRouter({ client: fake.client, queryClient, serverId });
+
+    // A body-announced update whose pull fails must leave the scope repairable
+    // instead of silently dropping the fresh snapshot.
+    fake.emit({
+      type: "providers_snapshot_update",
+      payload: {
+        cwd,
+        entries: [],
+        snapshotHash: "uncached-body",
+        generatedAt: "2026-01-01T00:00:01.000Z",
+      },
+    });
+
+    await expect.poll(() => queryClient.getQueryState(queryKey)?.isInvalidated).toBe(true);
+    unmount();
+  });
+
   it("subscribes active checkout diff queries and writes matching diff events", () => {
     const queryClient = new QueryClient();
     const fake = createFakeClient();

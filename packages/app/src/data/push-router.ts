@@ -293,7 +293,14 @@ export function mountServerDataPushRouter(input: PushRouterInput): () => void {
           serverId: input.serverId,
           message,
         }).catch(() => {
-          /* Query state owns fetch failures; reconnect/refetch repairs them. */
+          // A dropped apply must not leave the replica permanently stale:
+          // invalidating keeps the next access able to refetch and converge.
+          void input.queryClient.invalidateQueries({
+            queryKey: providersSnapshotQueryKey(
+              input.serverId,
+              normalizeProvidersSnapshotCwd(message.payload?.cwd ?? null),
+            ),
+          });
         });
       }
       if (message.type === "status")

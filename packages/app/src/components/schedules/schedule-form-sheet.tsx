@@ -640,8 +640,8 @@ function ScheduleTargetFields({
     [model],
   );
   const handleModelOpen = useCallback(() => {
-    providerSnapshot.refetchIfStale(state.selectedProvider);
-  }, [providerSnapshot, state.selectedProvider]);
+    providerSnapshot.refetch();
+  }, [providerSnapshot]);
   const handleRetryProvider = useCallback(
     (provider: AgentProvider) => {
       void providerSnapshot.refresh([provider]);

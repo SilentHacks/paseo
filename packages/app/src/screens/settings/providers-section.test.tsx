@@ -255,7 +255,7 @@ vi.mock("@/hooks/use-providers-snapshot", () => ({
     error: null,
     supportsSnapshot: true,
     refresh: vi.fn(async () => {}),
-    refetchIfStale: vi.fn(),
+    refetch: vi.fn(),
   }),
 }));
 

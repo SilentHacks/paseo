@@ -72,7 +72,7 @@ export interface UseAgentFormStateResult {
   isModelLoading: boolean;
   modelError: string | null;
   refreshProviderModels: (provider?: AgentProvider) => void;
-  refetchProviderModelsIfStale: () => void;
+  refetchProviderModels: () => void;
   setProviderAndModelFromUser: (provider: AgentProvider, modelId: string) => void;
   applyProfileFromUser: (profile: MaterializedAgentProfile) => void;
   clearProviderSelectionFromUser: () => void;
@@ -183,7 +183,7 @@ export function useAgentFormState(options: UseAgentFormStateOptions): UseAgentFo
     isRefreshing: snapshotIsRefreshing,
     error: snapshotError,
     refresh: refreshSnapshot,
-    refetchIfStale: refetchSnapshotIfStale,
+    refetch: refetchSnapshot,
   } = useProvidersSnapshot(serverId, { cwd: workingDir });
 
   const allProviderEntries = useMemo(() => snapshotEntries ?? [], [snapshotEntries]);
@@ -441,9 +441,9 @@ export function useAgentFormState(options: UseAgentFormStateOptions): UseAgentFo
     [refreshSnapshot],
   );
 
-  const refetchProviderModelsIfStale = useCallback(() => {
-    refetchSnapshotIfStale(formState.provider);
-  }, [formState.provider, refetchSnapshotIfStale]);
+  const refetchProviderModels = useCallback(() => {
+    refetchSnapshot();
+  }, [refetchSnapshot]);
 
   const persistFormPreferences = useCallback(async () => {
     if (!formState.provider) {
@@ -496,7 +496,7 @@ export function useAgentFormState(options: UseAgentFormStateOptions): UseAgentFo
       isModelLoading,
       modelError,
       refreshProviderModels,
-      refetchProviderModelsIfStale,
+      refetchProviderModels,
       setProviderAndModelFromUser,
       applyProfileFromUser,
       clearProviderSelectionFromUser,
@@ -527,7 +527,7 @@ export function useAgentFormState(options: UseAgentFormStateOptions): UseAgentFo
       isModelLoading,
       modelError,
       refreshProviderModels,
-      refetchProviderModelsIfStale,
+      refetchProviderModels,
       setProviderAndModelFromUser,
       applyProfileFromUser,
       clearProviderSelectionFromUser,

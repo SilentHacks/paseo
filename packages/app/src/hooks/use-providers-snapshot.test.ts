@@ -15,7 +15,6 @@ import {
   fetchProvidersSnapshot,
   providersSnapshotQueryKey,
   refreshAndApplyProvidersSnapshot,
-  selectorOpenRefetchDecision,
   type ProvidersSnapshotClient,
 } from "./use-providers-snapshot";
 
@@ -465,49 +464,5 @@ describe("applyProvidersSnapshotUpdate", () => {
     });
 
     expect(queryClient.getQueryState(commandsKey)?.isInvalidated).toBe(true);
-  });
-});
-
-describe("selectorOpenRefetchDecision", () => {
-  it("refetches stale entries when no provider is selected", async () => {
-    expect(
-      selectorOpenRefetchDecision({
-        entries: [codexEntry("ready", [readyCodexModel])],
-        selectedProvider: null,
-      }),
-    ).toBe("refetch-stale");
-  });
-
-  it("forces a refetch when the selected provider has no entry", async () => {
-    expect(selectorOpenRefetchDecision({ entries: [], selectedProvider: "codex" })).toBe(
-      "refetch-always",
-    );
-  });
-
-  it("forces a refetch when the selected provider is still loading", async () => {
-    expect(
-      selectorOpenRefetchDecision({
-        entries: [codexEntry("loading")],
-        selectedProvider: "codex",
-      }),
-    ).toBe("refetch-always");
-  });
-
-  it("keeps a stale-only refetch when the selected provider is ready with no models", async () => {
-    expect(
-      selectorOpenRefetchDecision({
-        entries: [codexEntry("ready", [])],
-        selectedProvider: "codex",
-      }),
-    ).toBe("refetch-stale");
-  });
-
-  it("keeps a stale-only refetch when the selected provider is ready with models", async () => {
-    expect(
-      selectorOpenRefetchDecision({
-        entries: [codexEntry("ready", [readyCodexModel])],
-        selectedProvider: "codex",
-      }),
-    ).toBe("refetch-stale");
   });
 });

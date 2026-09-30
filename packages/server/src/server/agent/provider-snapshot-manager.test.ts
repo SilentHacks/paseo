@@ -3448,3 +3448,32 @@ test("binding a settled catalogue publishes once and rebinding an equal settled 
     manager.destroy();
   }
 });
+
+test("a settled catalogue past its freshness lifetime re-probes on read", async () => {
+  let fetches = 0;
+  const manager = new ProviderSnapshotManager({
+    logger: createTestLogger(),
+    providerOverrides: PUBLICATION_PROVIDERS,
+    extraClients: {
+      codex: createExtraClient("codex", {
+        isAvailable: async () => true,
+        fetchCatalog: async () => {
+          fetches++;
+          return { models: [], modes: [] };
+        },
+      }),
+    },
+  });
+  try {
+    await manager.warmUpSnapshotForCwd({ cwd: "/tmp/catalog-ttl" });
+    await manager.warmUpSnapshotForCwd({ cwd: "/tmp/catalog-ttl" });
+    expect(fetches).toBe(1);
+    vi.useFakeTimers();
+    vi.setSystemTime(Date.now() + 13 * 60 * 60 * 1000);
+    await manager.warmUpSnapshotForCwd({ cwd: "/tmp/catalog-ttl" });
+    expect(fetches).toBe(2);
+  } finally {
+    vi.useRealTimers();
+    manager.destroy();
+  }
+});

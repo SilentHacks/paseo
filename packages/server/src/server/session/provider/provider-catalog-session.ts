@@ -324,12 +324,10 @@ export class ProviderCatalogSession {
     if (entry && !entry.enabled) {
       return entry;
     }
-    if (!entry || entry.status === "loading") {
-      // Awaits the in-flight warmup (deduped per-cwd) so old clients still get
-      // a resolved answer rather than a loading placeholder.
-      await manager.warmUpSnapshotForCwd({ cwd, providers: [provider] });
-      entry = findEntry();
-    }
+    // Warm-up is a no-op on fresh catalogs and dedupes in-flight loads; awaiting
+    // it keeps reads convergent even while a stale-marked catalog re-probes.
+    await manager.warmUpSnapshotForCwd({ cwd, providers: [provider] });
+    entry = findEntry();
     return entry;
   }
 
@@ -420,6 +418,9 @@ export class ProviderCatalogSession {
     msg: Extract<SessionInboundMessage, { type: "get_providers_snapshot_request" }>,
   ): Promise<void> {
     const cwd = msg.cwd?.trim() ? resolveSnapshotCwd(expandTilde(msg.cwd)) : undefined;
+    // Await deduped warm-up so reads against stale-marked or in-flight catalogs
+    // return post-probe records instead of relying on a pushed update arriving.
+    await this.providerSnapshotManager.warmUpSnapshotForCwd({ cwd });
     const snapshot = this.visibleSnapshot(this.providerSnapshotManager.getSnapshot(cwd));
     this.host.emit({
       type: "get_providers_snapshot_response",
