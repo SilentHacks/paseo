@@ -187,7 +187,7 @@ vi.mock("@/hooks/use-providers-snapshot", () => ({
     error: null,
     supportsSnapshot: mockSnapshot.current.supportsSnapshot,
     refresh: vi.fn(),
-    refetchIfStale: vi.fn(),
+    refetch: vi.fn(),
   }),
 }));
 

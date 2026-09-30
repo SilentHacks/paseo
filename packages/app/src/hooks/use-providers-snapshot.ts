@@ -28,22 +28,6 @@ export type ProvidersSnapshotClient = Pick<
   "getProvidersSnapshot" | "refreshProvidersSnapshot"
 >;
 
-export type SelectorOpenRefetchDecision = "refetch-stale" | "refetch-always";
-
-export function selectorOpenRefetchDecision(input: {
-  entries: ProviderSnapshotEntry[] | undefined;
-  selectedProvider: AgentProvider | null | undefined;
-}): SelectorOpenRefetchDecision {
-  if (!input.selectedProvider) {
-    return "refetch-stale";
-  }
-  const selectedEntry = input.entries?.find((entry) => entry.provider === input.selectedProvider);
-  if (!selectedEntry || selectedEntry.status === "loading") {
-    return "refetch-always";
-  }
-  return "refetch-stale";
-}
-
 interface UseProvidersSnapshotResult {
   entries: ProviderSnapshotEntry[] | undefined;
   isLoading: boolean;
@@ -52,7 +36,7 @@ interface UseProvidersSnapshotResult {
   error: string | null;
   supportsSnapshot: boolean;
   refresh: (providers?: AgentProvider[]) => Promise<void>;
-  refetchIfStale: (selectedProvider?: AgentProvider | null) => void;
+  refetch: () => void;
 }
 
 interface UseProvidersSnapshotOptions {
@@ -114,20 +98,12 @@ export function useProvidersSnapshot(
     [refreshSnapshot],
   );
 
-  const refetchIfStale = useCallback(
-    (selectedProvider?: AgentProvider | null) => {
-      const decision = selectorOpenRefetchDecision({
-        entries: snapshotQuery.data?.entries,
-        selectedProvider,
-      });
-      if (decision === "refetch-always") {
-        void queryClient.refetchQueries({ queryKey, type: "active" });
-        return;
-      }
-      void queryClient.refetchQueries({ queryKey, type: "active", stale: true });
-    },
-    [queryClient, queryKey, snapshotQuery.data?.entries],
-  );
+  // Replica queries never go stale (staleTime: Infinity), so gating this on
+  // `stale: true` made selector-open refetches a permanent no-op. The response
+  // carries ifNoneMatch, so an unconditional refetch stays cheap when unchanged.
+  const refetch = useCallback(() => {
+    void queryClient.refetchQueries({ queryKey, type: "active" });
+  }, [queryClient, queryKey]);
 
   return {
     entries: snapshotQuery.data?.entries ?? undefined,
@@ -137,7 +113,7 @@ export function useProvidersSnapshot(
     error: snapshotQuery.error instanceof Error ? snapshotQuery.error.message : null,
     supportsSnapshot,
     refresh,
-    refetchIfStale,
+    refetch,
   };
 }
 

@@ -46,7 +46,7 @@ export function buildDraftAgentControls(input: {
     features,
     onSetFeature,
     onDropdownClose,
-    onModelSelectorOpen: formState.refetchProviderModelsIfStale,
+    onModelSelectorOpen: formState.refetchProviderModels,
     onRetryModelProvider: formState.refreshProviderModels,
     isRetryingModelProvider: formState.isProviderModelsRefreshing,
     modelSelectorServerId: formState.selectedServerId,

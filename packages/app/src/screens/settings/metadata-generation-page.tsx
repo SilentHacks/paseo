@@ -83,8 +83,8 @@ export function MetadataGenerationPage({ serverId }: { serverId: string }) {
   );
 
   const handleSelectorOpen = useCallback(() => {
-    snapshot.refetchIfStale(configuredProvider?.provider);
-  }, [configuredProvider?.provider, snapshot]);
+    snapshot.refetch();
+  }, [snapshot]);
   const handleRetryProvider = useCallback(
     (provider: AgentProvider) => snapshot.refresh([provider]),
     [snapshot],

@@ -66,6 +66,7 @@ function makeSubsystem(options: MakeOptions = {}) {
       changeHandler = handler;
     },
     off: () => {},
+    warmUpSnapshotForCwd: async () => {},
     ...options.snapshot,
   });
   const subsystem = new ProviderCatalogSession({
@@ -135,6 +136,24 @@ describe("ProviderCatalogSession", () => {
     const canonicalCwd = getSnapshot.mock.calls[0]?.[0];
     expect(canonicalCwd).toEqual(expect.any(String));
     expect(findByType(emitted, "get_providers_snapshot_response")?.payload.cwd).toBe(canonicalCwd);
+  });
+
+  it("awaits deduped warm-up before reading the snapshot", async () => {
+    const warmUpSnapshotForCwd = vi.fn(async () => {});
+    const { subsystem } = makeSubsystem({
+      snapshot: {
+        getSnapshot: () => createProviderSnapshot(makeEntries()),
+        warmUpSnapshotForCwd,
+      },
+    });
+
+    await subsystem.handleGetProvidersSnapshotRequest({
+      type: "get_providers_snapshot_request",
+      requestId: "warm-1",
+      cwd: "/repo/./sdk",
+    });
+
+    expect(warmUpSnapshotForCwd).toHaveBeenCalledWith({ cwd: expect.any(String) });
   });
 
   it("pushes the compact encoding to capable clients", () => {
@@ -222,12 +241,12 @@ describe("ProviderCatalogSession", () => {
   });
 
   it("reports a disabled provider on list_provider_models without warming the snapshot", async () => {
-    // warmUpSnapshotForCwd is intentionally unstubbed: createStub throws if it is called,
-    // so the disabled short-circuit is proven by the absence of a throw.
+    const warmUpSnapshotForCwd = vi.fn(async () => {});
     const { subsystem, emitted } = makeSubsystem({
       snapshot: {
         getSnapshot: () =>
           createProviderSnapshot([{ provider: "codex", status: "loading", enabled: false }]),
+        warmUpSnapshotForCwd,
       },
     });
 
@@ -239,6 +258,7 @@ describe("ProviderCatalogSession", () => {
 
     const res = findByType(emitted, "list_provider_models_response");
     expect(res?.payload.error).toBe("Provider codex is disabled");
+    expect(warmUpSnapshotForCwd).not.toHaveBeenCalled();
   });
 
   it("hides compatibility-only entries from list_provider_models", async () => {

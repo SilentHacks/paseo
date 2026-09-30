@@ -56,6 +56,9 @@ const DEFAULT_REFRESH_TIMEOUT_MS = 120_000;
 const MAX_REFRESH_TIMEOUT_MS = 2_147_483_647;
 const DEFAULT_DIAGNOSTIC_TIMEOUT_MS = 120_000;
 const PROVIDER_REFRESH_DEADLINE_ENV = "PASEO_PROVIDER_REFRESH_TIMEOUT_MS";
+// Probed catalogs re-probe on read past this age so a pre-release result cannot
+// outlive the refresh events that were supposed to replace it.
+const PROVIDER_CATALOG_TTL_MS = 12 * 60 * 60 * 1000;
 export const GLOBAL_PROVIDER_SNAPSHOT_KEY = "paseo:global";
 
 function validRefreshDeadline(value: unknown): number | undefined {
@@ -960,7 +963,16 @@ export class ProviderSnapshotManager {
       catalogs.set(provider, catalog);
     }
     this.publishTargets([snapshotCwd]);
-    if (!force && (catalog.load || (catalog.result && !catalog.stale))) return catalog.load;
+    if (!force) {
+      if (catalog.load) return catalog.load;
+      if (catalog.result && !catalog.stale) {
+        if (isCatalogExpired(catalog.result.entry.fetchedAt)) {
+          catalog.stale = true;
+        } else {
+          return;
+        }
+      }
+    }
     catalog.stale = false;
 
     const current = catalog;
@@ -1181,6 +1193,11 @@ function createFetchCatalogOptions(
 
 export function isGlobalProviderSnapshotKey(cwd: string): boolean {
   return cwd === GLOBAL_PROVIDER_SNAPSHOT_KEY;
+}
+
+function isCatalogExpired(fetchedAt: string | undefined): boolean {
+  if (!fetchedAt) return false;
+  return Date.now() - Date.parse(fetchedAt) >= PROVIDER_CATALOG_TTL_MS;
 }
 
 function identifyEntry(entry: ProviderSnapshotEntry): ProviderSnapshotRecord {

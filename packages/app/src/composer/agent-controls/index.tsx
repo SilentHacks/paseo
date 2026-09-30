@@ -1560,7 +1560,7 @@ export const AgentControls = memo(function AgentControls({
     isLoading: snapshotIsLoading,
     isRefreshing: snapshotIsRefreshing,
     refresh: refreshSnapshot,
-    refetchIfStale: refetchSnapshotIfStale,
+    refetch: refetchSnapshot,
   } = useProvidersSnapshot(serverId, { cwd: agent?.cwd });
 
   const snapshotSelectedEntry = useMemo(
@@ -1764,8 +1764,8 @@ export const AgentControls = memo(function AgentControls({
   );
 
   const handleModelSelectorOpen = useCallback(() => {
-    refetchSnapshotIfStale(agentProvider);
-  }, [agentProvider, refetchSnapshotIfStale]);
+    refetchSnapshot();
+  }, [refetchSnapshot]);
 
   const handleRetryModelProvider = useCallback(
     (provider: AgentProvider) => {
