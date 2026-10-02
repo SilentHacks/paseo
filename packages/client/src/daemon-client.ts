@@ -40,6 +40,7 @@ import type {
   FileUploadResponse,
   FileExplorerResponse,
   FileVersion,
+  DirectoryVersion,
   FileWriteResult,
   FetchAgentTimelineResponseMessage,
   AgentForkContextResponseMessage,
@@ -4889,6 +4890,42 @@ export class DaemonClient {
       },
       update: (message) => {
         if (message.type === "fs.file.update") onUpdate(message.payload.version);
+      },
+    });
+    const snapshot = await subscription.ready;
+    return { initial: snapshot.initial, subscription, unsubscribe: subscription.release };
+  }
+
+  observeDirectory(input: {
+    cwd: string;
+    path: string;
+    signal?: AbortSignal;
+  }): OwnedSubscription<CorrelatedResponsePayload<"fs.directory.subscribe.response">> {
+    return this.observe(
+      "fs.directory.subscribe.response",
+      { type: "fs.directory.subscribe.request", cwd: input.cwd, path: input.path },
+      { signal: input.signal },
+    );
+  }
+
+  async subscribeDirectory(
+    input: { cwd: string; path: string; signal?: AbortSignal },
+    onUpdate: (version: DirectoryVersion) => void,
+  ): Promise<{
+    initial: DirectoryVersion;
+    subscription: OwnedSubscription<CorrelatedResponsePayload<"fs.directory.subscribe.response">>;
+    unsubscribe: () => Promise<void>;
+  }> {
+    const subscription = this.observeDirectory(input);
+    let initial = true;
+    subscription.subscribe({
+      snapshot: (snapshot) => {
+        // The initial version is returned below. Subsequent snapshots repair reconnects.
+        if (!initial) onUpdate(snapshot.initial);
+        initial = false;
+      },
+      update: (message) => {
+        if (message.type === "fs.directory.update") onUpdate(message.payload.version);
       },
     });
     const snapshot = await subscription.ready;

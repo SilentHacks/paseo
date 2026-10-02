@@ -115,6 +115,7 @@ export class LegacySubscriptions {
       case "workspace.label.list.request":
         return { ...query, subscribe: { subscriptionId: id } };
       case "fs.file.subscribe.request":
+      case "fs.directory.subscribe.request":
       case "subscribe_checkout_diff_request":
         return { ...query, subscriptionId: id };
       case "agent.timeline.set_subscription.request":
@@ -158,6 +159,8 @@ export class LegacySubscriptions {
         return this.request(interest);
       case "fs.file.subscribe.request":
         return { type: "fs.file.unsubscribe.request", subscriptionId: id };
+      case "fs.directory.subscribe.request":
+        return { type: "fs.directory.unsubscribe.request", subscriptionId: id };
       case "subscribe_checkout_diff_request":
         return { type: "unsubscribe_checkout_diff_request", subscriptionId: id };
       case "subscribe_terminal_request":
@@ -236,6 +239,8 @@ export class LegacySubscriptions {
         return message.type === "workspace.label.update";
       case "fs.file.subscribe.request":
         return message.type === "fs.file.update" && message.payload.subscriptionId === id;
+      case "fs.directory.subscribe.request":
+        return message.type === "fs.directory.update" && message.payload.subscriptionId === id;
       case "subscribe_checkout_diff_request":
         return message.type === "checkout_diff_update" && message.payload.subscriptionId === id;
       case "subscribe_terminals_request":

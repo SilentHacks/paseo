@@ -311,6 +311,7 @@ export class SessionDelivery {
         const tagged =
           source.modern ||
           message.type === "fs.file.update" ||
+          message.type === "fs.directory.update" ||
           message.type === "checkout_diff_update"
             ? withSubscriptionId(message, responseId)
             : legacyMessage(message);

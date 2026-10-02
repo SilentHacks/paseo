@@ -62,6 +62,7 @@ import { FileActionsContextMenuContent } from "@/components/file-actions-menu";
 import { ContextMenu, ContextMenuTrigger, useContextMenu } from "@/components/ui/context-menu";
 import { useFileDownload } from "@/hooks/use-file-download";
 import { useFileExplorerActions } from "@/hooks/use-file-explorer-actions";
+import { useExplorerDirectoryWatch } from "@/hooks/use-explorer-directory-watch";
 import { useIsLocalDaemon } from "@/hooks/use-is-local-daemon";
 import { buildWorkspaceExplorerStateKey } from "@/hooks/use-file-explorer-actions";
 import { usePanelStore, type ExpandedPathsUpdate, type SortOption } from "@/stores/panel-store";
@@ -447,6 +448,7 @@ export function FileExplorerPane({
     duplicateEntry,
     deleteEntry,
     selectExplorerEntry,
+    applyDirectoryVersion,
   } = useFileExplorerActions({
     serverId,
     workspaceId,
@@ -910,6 +912,20 @@ export function FileExplorerPane({
       void refreshExplorer();
     }
   }, [isPaneActive, refreshExplorer]);
+
+  // COMPAT(fsDirectoryWatch): added in v0.9.0, remove gate after 2027-10-02.
+  const fsDirectoryWatchEnabled = useSessionStore(
+    (state) => state.sessions[serverId]?.serverInfo?.features?.fsDirectoryWatch === true,
+  );
+  const daemonClient = useSessionStore((state) => state.sessions[serverId]?.client ?? null);
+  useExplorerDirectoryWatch({
+    client: daemonClient,
+    cwd: normalizedWorkspaceRoot || null,
+    enabled: fsDirectoryWatchEnabled && hasWorkspaceScope,
+    active: isPaneActive,
+    expandedPaths,
+    onVersion: applyDirectoryVersion,
+  });
 
   const sortLabels = useMemo(
     () => ({
