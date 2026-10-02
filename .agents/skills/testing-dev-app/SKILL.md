@@ -21,3 +21,44 @@ description: How to run and drive the Paseo dev environment (web app, dev daemon
 - Electron window has no URL bar — navigate via the sidebar/settings gear, or deep-link Chrome only. Electron detection in the app is `window.paseoDesktop` injected by preload; `getIsElectron()` gates desktop-only UI.
 - Terminal settings (font/size/colors) are applied reactively via `useAppSettings` in `terminal-pane.tsx` — existing terminal sessions re-render on settings change with scrollback preserved (daemon owns the session).
 - i18n uses i18next `{{key}}` double-brace interpolation — `{key}` single braces render literally.
+
+## Creating a workspace without the UI
+
+The "Add a project → open a folder" flow in the app creates the _project_ but lands on a `/new` workspace form that expects an agent submit. To get a usable workspace without starting an agent, create it via the dev CLI instead:
+
+```bash
+npm run cli -- workspace create --isolation local --path /abs/dir --project <projectId> --title Name --json
+# then open  /h/<serverId>/workspace/<workspaceId>
+```
+
+`--isolation` is required (`local` for a plain directory). `serverId` comes from the `/new` URL or `npm run cli -- daemon status`.
+
+## Explorer sidebar (file tree) controls
+
+- `Cmd+E` toggles the right Explorer sidebar; `Cmd+Shift+E` opens the **Files** view inside it (sidebar defaults to the Changes view otherwise).
+- Files-pane header icons left→right: new file, new folder, hidden-files eye, circular refresh arrow (rightmost, testID `files-refresh`). Do not confuse new file with refresh — the new-file icon opens an inline name input; press `Escape` to cancel.
+- Clicking a directory row toggles expand/collapse; `expandedPaths` includes the root as `"."` by default.
+
+## Verifying daemon feature flags
+
+Features the app gates on `server_info.features.*` fail silently when absent. Probe the running dev daemon before trusting UI behavior (run from a package dir so `ws` resolves):
+
+```js
+import WebSocket from "ws";
+const ws = new WebSocket("ws://localhost:6768/ws");
+ws.on("open", () =>
+  ws.send(
+    JSON.stringify({ type: "hello", clientId: "probe", clientType: "cli", protocolVersion: 1 }),
+  ),
+);
+ws.on("message", (d) => {
+  const m = JSON.parse(d);
+  const inner = m.type === "session" ? m.message : m;
+  if (inner.type === "status") console.log(JSON.stringify(inner.payload.features));
+});
+```
+
+## macOS pitfalls
+
+- `cmd+l` does not always reach Chrome's omnibox when the app window isn't frontmost — typed text lands in the app's composer. Click the address bar explicitly, or `osascript -e 'tell application "Google Chrome" to activate'` first.
+- macOS notification banners cover the top-right corner where the Explorer rail lives; dismiss them before clicking there, and avoid clicking the banner itself (opens the notifying app and steals focus).
