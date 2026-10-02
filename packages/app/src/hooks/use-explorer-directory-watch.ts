@@ -92,6 +92,10 @@ function startDirectorySubscription(
       if (released) {
         await subscription.unsubscribe();
       } else {
+        // The subscribe response's initial snapshot is returned, not routed
+        // through onUpdate — apply it so a re-subscribe (re-expand, reconnect,
+        // pane reactivate) replaces any stale cached listing.
+        onVersion(subscription.initial);
         unsubscribe = subscription.unsubscribe;
       }
     } catch {
