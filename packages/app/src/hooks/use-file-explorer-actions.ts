@@ -5,7 +5,9 @@ import {
   type AgentFileExplorerState,
   type ExplorerDirectory,
 } from "@/stores/session-store";
+import type { DirectoryVersion } from "@getpaseo/protocol/messages";
 import { explorerFileFromReadResult } from "@/file-explorer/read-result";
+import { applyDirectoryVersionToDirectories } from "@/file-explorer/directory-updates";
 import { parentExplorerPath } from "@/utils/explorer-paths";
 import type { DownloadFileOverSession } from "@/stores/download-store";
 import { DownloadUserError } from "@/stores/download-user-error";
@@ -352,6 +354,16 @@ export function useFileExplorerActions(params: { serverId: string } & FileExplor
     [updateExplorerState],
   );
 
+  const applyDirectoryVersion = useCallback(
+    (version: DirectoryVersion) => {
+      updateExplorerState((state) => {
+        const directories = applyDirectoryVersionToDirectories(state.directories, version);
+        return directories ? { ...state, directories } : state;
+      });
+    },
+    [updateExplorerState],
+  );
+
   return {
     workspaceStateKey,
     requestDirectoryListing,
@@ -363,5 +375,6 @@ export function useFileExplorerActions(params: { serverId: string } & FileExplor
     duplicateEntry,
     deleteEntry,
     selectExplorerEntry,
+    applyDirectoryVersion,
   };
 }

@@ -1027,3 +1027,51 @@ test("subscribeFile returns its initial version without calling the change callb
     await h.client.close();
   }
 });
+
+test("subscribeDirectory returns its initial version without calling the change callback", async () => {
+  const h = connection();
+  try {
+    const connected = h.client.connect();
+    h.open();
+    await connected;
+    const changes: unknown[] = [];
+    const initial = { status: "missing" as const, cwd: "/repo", path: "sub" };
+    const subscribing = h.client.subscribeDirectory({ cwd: "/repo", path: "sub" }, (value) =>
+      changes.push(value),
+    );
+    expect(h.sent.at(-1)?.message).toMatchObject({
+      type: "fs.directory.subscribe.request",
+      cwd: "/repo",
+      path: "sub",
+    });
+    h.receive({
+      type: "fs.directory.subscribe.response",
+      payload: {
+        requestId: h.sent.at(-1)!.message!.requestId,
+        subscriptionId: "dir-owner",
+        initial,
+      },
+    });
+    const directory = await subscribing;
+    expect(directory.initial).toEqual(initial);
+    expect(changes).toEqual([]);
+    const version = {
+      status: "ready",
+      cwd: "/repo",
+      path: "sub",
+      directory: { path: "sub", entries: [] },
+    };
+    h.receive({
+      type: "fs.directory.update",
+      payload: { subscriptionId: "dir-owner", version },
+    });
+    expect(changes).toEqual([version]);
+    await directory.unsubscribe();
+    expect(h.sent.at(-1)?.message).toMatchObject({
+      type: "subscription.release.request",
+      subscriptionId: "dir-owner",
+    });
+  } finally {
+    await h.client.close();
+  }
+});

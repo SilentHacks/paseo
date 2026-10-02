@@ -2762,6 +2762,44 @@ export const FileUnsubscribeRequestSchema = z.object({
   requestId: z.string(),
 });
 
+// A directory observation mirrors FileVersion: the daemon watches one listing
+// scope (shallow — membership of the directory itself, not its subtree) and
+// pushes the fresh ExplorerDirectory payload on change. `missing` covers
+// deletion and rename; the parent listing's own update removes the row.
+export const DirectoryVersionSchema = z.discriminatedUnion("status", [
+  z.object({
+    status: z.literal("ready"),
+    cwd: z.string(),
+    path: z.string(),
+    directory: FileExplorerDirectorySchema,
+  }),
+  z.object({
+    status: z.literal("missing"),
+    cwd: z.string(),
+    path: z.string(),
+  }),
+  z.object({
+    status: z.literal("error"),
+    cwd: z.string(),
+    path: z.string(),
+    error: z.string(),
+  }),
+]);
+
+export const DirectorySubscribeRequestSchema = z.object({
+  type: z.literal("fs.directory.subscribe.request"),
+  cwd: z.string(),
+  path: z.string(),
+  subscriptionId: z.string().optional(),
+  requestId: z.string(),
+});
+
+export const DirectoryUnsubscribeRequestSchema = z.object({
+  type: z.literal("fs.directory.unsubscribe.request"),
+  subscriptionId: z.string(),
+  requestId: z.string(),
+});
+
 export const FileWriteRequestSchema = z.object({
   type: z.literal("fs.file.write.request"),
   cwd: z.string(),
@@ -3317,6 +3355,8 @@ export const SessionInboundMessageSchema = z.discriminatedUnion("type", [
   FileExplorerRequestSchema,
   FileSubscribeRequestSchema,
   FileUnsubscribeRequestSchema,
+  DirectorySubscribeRequestSchema,
+  DirectoryUnsubscribeRequestSchema,
   FileWriteRequestSchema,
   FileEntryCreateRequestSchema,
   FileEntryRenameRequestSchema,
@@ -3697,6 +3737,8 @@ export const ServerInfoStatusPayloadSchema = z
         fsEntryOps: z.boolean().optional(),
         // COMPAT(fsEntryDuplicate): added in v0.3.0, remove gate after 2027-02-09.
         fsEntryDuplicate: z.boolean().optional(),
+        // COMPAT(fsDirectoryWatch): added in v0.9.0, remove gate after 2027-10-02.
+        fsDirectoryWatch: z.boolean().optional(),
         // COMPAT(checkoutDiscardChanges): added in v0.3.0, remove gate after 2027-02-08.
         checkoutDiscardChanges: z.boolean().optional(),
         // COMPAT(agentProfiles): added in v0.3.2, remove gate after 2027-02-11.
@@ -6060,6 +6102,31 @@ export const FileUpdateSchema = z.object({
   }),
 });
 
+export const DirectorySubscribeResponseSchema = z.object({
+  type: z.literal("fs.directory.subscribe.response"),
+  payload: z.object({
+    subscriptionId: z.string(),
+    initial: DirectoryVersionSchema,
+    requestId: z.string(),
+  }),
+});
+
+export const DirectoryUnsubscribeResponseSchema = z.object({
+  type: z.literal("fs.directory.unsubscribe.response"),
+  payload: z.object({
+    subscriptionId: z.string(),
+    requestId: z.string(),
+  }),
+});
+
+export const DirectoryUpdateSchema = z.object({
+  type: z.literal("fs.directory.update"),
+  payload: z.object({
+    subscriptionId: z.string(),
+    version: DirectoryVersionSchema,
+  }),
+});
+
 const ProjectIconSchema = z.object({
   data: z.string(),
   mimeType: z.string(),
@@ -6954,6 +7021,9 @@ export const SessionOutboundMessageSchema = z.discriminatedUnion("type", [
   FileEntryDuplicateResponseSchema,
   FileEntryDeleteResponseSchema,
   FileUpdateSchema,
+  DirectorySubscribeResponseSchema,
+  DirectoryUnsubscribeResponseSchema,
+  DirectoryUpdateSchema,
   ProjectIconResponseSchema,
   ProjectIconGetResponseSchema,
   FileDownloadTokenResponseSchema,
@@ -7400,6 +7470,12 @@ export type FileEntryDeleteRequest = z.infer<typeof FileEntryDeleteRequestSchema
 export type FileEntryDeleteResponse = z.infer<typeof FileEntryDeleteResponseSchema>;
 export type FileWriteResult = z.infer<typeof FileWriteResultSchema>;
 export type FileUpdate = z.infer<typeof FileUpdateSchema>;
+export type DirectoryVersion = z.infer<typeof DirectoryVersionSchema>;
+export type DirectorySubscribeRequest = z.infer<typeof DirectorySubscribeRequestSchema>;
+export type DirectorySubscribeResponse = z.infer<typeof DirectorySubscribeResponseSchema>;
+export type DirectoryUnsubscribeRequest = z.infer<typeof DirectoryUnsubscribeRequestSchema>;
+export type DirectoryUnsubscribeResponse = z.infer<typeof DirectoryUnsubscribeResponseSchema>;
+export type DirectoryUpdate = z.infer<typeof DirectoryUpdateSchema>;
 export type ProjectIconRequest = z.infer<typeof ProjectIconRequestSchema>;
 export type ProjectIconResponse = z.infer<typeof ProjectIconResponseSchema>;
 export type ProjectIconGetRequest = z.infer<typeof ProjectIconGetRequestSchema>;

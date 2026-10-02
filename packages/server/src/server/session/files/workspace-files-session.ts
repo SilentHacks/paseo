@@ -1,6 +1,6 @@
 import type pino from "pino";
 import type { SessionDelivery } from "../owned-subscriptions/index.js";
-import type { FileVersion } from "@getpaseo/protocol/messages";
+import type { DirectoryVersion, FileVersion } from "@getpaseo/protocol/messages";
 import { getErrorMessage } from "@getpaseo/protocol/error-utils";
 import {
   encodeFileTransferFrame,
@@ -18,6 +18,8 @@ import type {
   FileUploadRequest,
   FileSubscribeRequest,
   FileUnsubscribeRequest,
+  DirectorySubscribeRequest,
+  DirectoryUnsubscribeRequest,
   FileWriteRequest,
   SessionInboundMessage,
   SessionOutboundMessage,
@@ -36,6 +38,10 @@ import {
   writeExplorerFile,
 } from "../../file-explorer/service.js";
 import { workspaceFileObserver, type FileObserver } from "../../file-explorer/observer.js";
+import {
+  workspaceDirectoryObserver,
+  type DirectoryObserver,
+} from "../../file-explorer/directory-observer.js";
 import { getProjectIcon } from "../../../utils/project-icon.js";
 
 /**
@@ -56,6 +62,7 @@ export interface WorkspaceFilesSessionOptions {
   paseoHome: string;
   logger: pino.Logger;
   fileObserver?: FileObserver;
+  directoryObserver?: DirectoryObserver;
 }
 
 /**
@@ -71,6 +78,7 @@ export class WorkspaceFilesSession {
   private readonly logger: pino.Logger;
   private readonly fileUploads: FileUploadStore;
   private readonly fileObserver: FileObserver;
+  private readonly directoryObserver: DirectoryObserver;
 
   constructor(options: WorkspaceFilesSessionOptions) {
     this.host = options.host;
@@ -78,6 +86,7 @@ export class WorkspaceFilesSession {
     this.logger = options.logger;
     this.fileUploads = new FileUploadStore({ paseoHome: options.paseoHome });
     this.fileObserver = options.fileObserver ?? workspaceFileObserver;
+    this.directoryObserver = options.directoryObserver ?? workspaceDirectoryObserver;
   }
 
   async handleFileSubscribeRequest(
@@ -152,6 +161,82 @@ export class WorkspaceFilesSession {
     await ownership.release(request.subscriptionId);
     this.host.emit({
       type: "fs.file.unsubscribe.response",
+      payload: { subscriptionId: request.subscriptionId, requestId: request.requestId },
+    });
+  }
+
+  async handleDirectorySubscribeRequest(
+    request: DirectorySubscribeRequest,
+    ownership: SessionDelivery,
+  ): Promise<void> {
+    let bootstrap: ReturnType<DirectoryObserver["subscribe"]> | undefined;
+    const owner = ownership.begin(
+      "files",
+      request.subscriptionId,
+      async () => {
+        await bootstrap?.then(
+          (subscription) => subscription.unsubscribe(),
+          () => undefined,
+        );
+      },
+      `directory:${request.subscriptionId}`,
+    );
+    let ready = false;
+    let pending: DirectoryVersion | null = null;
+    const emitVersion = (version: DirectoryVersion) =>
+      owner.emit({
+        type: "fs.directory.update",
+        payload: { subscriptionId: owner.responseId, version },
+      });
+    try {
+      bootstrap = this.directoryObserver.subscribe(
+        { cwd: request.cwd, path: request.path },
+        (version) => {
+          if (owner.signal.aborted) return;
+          if (ready) emitVersion(version);
+          else pending = version;
+        },
+      );
+      const subscription = await bootstrap;
+      if (owner.signal.aborted) {
+        subscription.unsubscribe();
+        return;
+      }
+      this.host.emit({
+        type: "fs.directory.subscribe.response",
+        payload: {
+          subscriptionId: owner.responseId,
+          initial: subscription.initial,
+          requestId: request.requestId,
+        },
+      });
+      ready = true;
+      if (pending) emitVersion(pending);
+    } catch (error) {
+      await owner.release();
+      this.host.emit({
+        type: "fs.directory.subscribe.response",
+        payload: {
+          subscriptionId: owner.responseId,
+          initial: {
+            status: "error",
+            cwd: request.cwd,
+            path: request.path,
+            error: getErrorMessage(error),
+          },
+          requestId: request.requestId,
+        },
+      });
+    }
+  }
+
+  async handleDirectoryUnsubscribeRequest(
+    request: DirectoryUnsubscribeRequest,
+    ownership: SessionDelivery,
+  ): Promise<void> {
+    await ownership.release(request.subscriptionId);
+    this.host.emit({
+      type: "fs.directory.unsubscribe.response",
       payload: { subscriptionId: request.subscriptionId, requestId: request.requestId },
     });
   }
